@@ -207,6 +207,13 @@ export const specificationSourceSchema = z.object({
 });
 export type SpecificationSourceDto = z.infer<typeof specificationSourceSchema>;
 
+export const specificationSourceSummarySchema = z.object({
+  id: z.uuid(),
+  sourceType: specificationSourceTypeSchema,
+  sourceName: z.string(),
+  referenceUrl: z.string().nullable(),
+});
+
 export const equipmentSpecificationSchema = z.object({
   id: z.uuid(),
   modelId: z.uuid(),
@@ -221,14 +228,7 @@ export const equipmentSpecificationSchema = z.object({
   normalizedMax: z.number().nullable(),
   verificationStatus: verificationStatusSchema,
   verifiedAt: z.iso.datetime().nullable(),
-  source: z
-    .object({
-      id: z.uuid(),
-      sourceType: specificationSourceTypeSchema,
-      sourceName: z.string(),
-      referenceUrl: z.string().nullable(),
-    })
-    .nullable(),
+  source: specificationSourceSummarySchema.nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -246,11 +246,6 @@ export const equipmentModelSchema = z.object({
 });
 export type EquipmentModelDto = z.infer<typeof equipmentModelSchema>;
 
-export const equipmentModelDetailSchema = equipmentModelSchema.extend({
-  specifications: z.array(equipmentSpecificationSchema),
-});
-export type EquipmentModelDetailDto = z.infer<typeof equipmentModelDetailSchema>;
-
 export const equipmentModelPageSchema = z.object({
   items: z.array(equipmentModelSchema),
   limit: z.number().int(),
@@ -258,3 +253,114 @@ export const equipmentModelPageSchema = z.object({
   total: z.number().int(),
 });
 export type EquipmentModelPageDto = z.infer<typeof equipmentModelPageSchema>;
+
+// Taxonomy: capabilities say what equipment can do, construction tasks say what work needs.
+
+export const capabilityImportanceSchema = z.enum(['REQUIRED', 'PREFERRED', 'OPTIONAL']);
+export type CapabilityImportance = z.infer<typeof capabilityImportanceSchema>;
+
+export const taskSuitabilitySchema = z.enum(['PRIMARY', 'SECONDARY']);
+export type TaskSuitability = z.infer<typeof taskSuitabilitySchema>;
+
+/** A capability link either exists unconfirmed or is verified; there is no empty value to be UNKNOWN. */
+export const linkVerificationStatusSchema = z.enum(['VERIFIED', 'REVIEW_REQUIRED']);
+export type LinkVerificationStatus = z.infer<typeof linkVerificationStatusSchema>;
+
+export const createCapabilityRequestSchema = z.strictObject({
+  code: knowledgeCodeSchema,
+  displayName: displayNameSchema,
+});
+export type CreateCapabilityRequest = z.infer<typeof createCapabilityRequestSchema>;
+
+export const createConstructionTaskRequestSchema = z.strictObject({
+  code: knowledgeCodeSchema,
+  displayName: displayNameSchema,
+});
+export type CreateConstructionTaskRequest = z.infer<typeof createConstructionTaskRequestSchema>;
+
+export const addTaskCapabilityRequestSchema = z.strictObject({
+  capabilityCode: knowledgeCodeSchema,
+  importance: capabilityImportanceSchema,
+});
+export type AddTaskCapabilityRequest = z.infer<typeof addTaskCapabilityRequestSchema>;
+
+export const addTaskCategoryRequestSchema = z.strictObject({
+  categoryCode: knowledgeCodeSchema,
+  suitability: taskSuitabilitySchema,
+});
+export type AddTaskCategoryRequest = z.infer<typeof addTaskCategoryRequestSchema>;
+
+/** Status defaults to REVIEW_REQUIRED; VERIFIED needs a source that is not a TEST_FIXTURE. */
+export const addCapabilityLinkRequestSchema = z.strictObject({
+  capabilityCode: knowledgeCodeSchema,
+  verificationStatus: linkVerificationStatusSchema.optional(),
+  sourceId: z.uuid().nullable().optional(),
+});
+export type AddCapabilityLinkRequest = z.infer<typeof addCapabilityLinkRequestSchema>;
+
+export const listCapabilityTasksQuerySchema = z.object({
+  importance: capabilityImportanceSchema.optional(),
+});
+export type ListCapabilityTasksQuery = z.infer<typeof listCapabilityTasksQuerySchema>;
+
+export const capabilitySchema = z.object({
+  id: z.uuid(),
+  code: z.string(),
+  displayName: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type CapabilityDto = z.infer<typeof capabilitySchema>;
+
+export const constructionTaskSchema = z.object({
+  id: z.uuid(),
+  code: z.string(),
+  displayName: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type ConstructionTaskDto = z.infer<typeof constructionTaskSchema>;
+
+const provenanceFields = {
+  verificationStatus: linkVerificationStatusSchema,
+  verifiedAt: z.iso.datetime().nullable(),
+  source: specificationSourceSummarySchema.nullable(),
+};
+
+/** A capability of one model or category, with how sure we are of it. */
+export const capabilityLinkSchema = z.object({ capability: capabilitySchema, ...provenanceFields });
+export type CapabilityLinkDto = z.infer<typeof capabilityLinkSchema>;
+
+/** A model linked directly to one capability. */
+export const capabilityModelSchema = z.object({ model: equipmentModelSchema, ...provenanceFields });
+export type CapabilityModelDto = z.infer<typeof capabilityModelSchema>;
+
+export const taskCapabilitySchema = z.object({
+  capability: capabilitySchema,
+  importance: capabilityImportanceSchema,
+});
+export type TaskCapabilityDto = z.infer<typeof taskCapabilitySchema>;
+
+export const capabilityTaskSchema = z.object({
+  task: constructionTaskSchema,
+  importance: capabilityImportanceSchema,
+});
+export type CapabilityTaskDto = z.infer<typeof capabilityTaskSchema>;
+
+export const taskCategorySchema = z.object({
+  category: equipmentCategorySchema,
+  suitability: taskSuitabilitySchema,
+});
+export type TaskCategoryDto = z.infer<typeof taskCategorySchema>;
+
+export const categoryTaskSchema = z.object({
+  task: constructionTaskSchema,
+  suitability: taskSuitabilitySchema,
+});
+export type CategoryTaskDto = z.infer<typeof categoryTaskSchema>;
+
+export const equipmentModelDetailSchema = equipmentModelSchema.extend({
+  specifications: z.array(equipmentSpecificationSchema),
+  capabilities: z.array(capabilityLinkSchema),
+});
+export type EquipmentModelDetailDto = z.infer<typeof equipmentModelDetailSchema>;

@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { DomainError } from '../../../platform/http';
 import type { SpecificationValue } from './entities';
-import { resolveVerification, type VerificationInput } from './verification';
+import {
+  resolveLinkVerification,
+  resolveVerification,
+  type VerificationInput,
+} from './verification';
 
 const empty: SpecificationValue = {
   numericValue: null,
@@ -142,5 +146,37 @@ describe('resolveVerification', () => {
         verifiedAt: null,
       });
     });
+  });
+});
+
+describe('resolveLinkVerification', () => {
+  it('defaults to REVIEW_REQUIRED and keeps an optional source', () => {
+    assert.deepEqual(resolveLinkVerification({ requested: undefined, source: null, now }), {
+      verificationStatus: 'REVIEW_REQUIRED',
+      sourceId: null,
+      verifiedAt: null,
+    });
+    assert.deepEqual(resolveLinkVerification({ requested: undefined, source: fixture, now }), {
+      verificationStatus: 'REVIEW_REQUIRED',
+      sourceId: 'src-f',
+      verifiedAt: null,
+    });
+  });
+
+  it('stamps verifiedAt when VERIFIED from a real source', () => {
+    assert.deepEqual(
+      resolveLinkVerification({ requested: 'VERIFIED', source: manufacturer, now }),
+      { verificationStatus: 'VERIFIED', sourceId: 'src-m', verifiedAt: now },
+    );
+  });
+
+  it('rejects VERIFIED without a source or from a TEST_FIXTURE', () => {
+    const rejects = (source: typeof manufacturer | typeof fixture | null, code: string) =>
+      assert.throws(
+        () => resolveLinkVerification({ requested: 'VERIFIED', source, now }),
+        (e: unknown) => e instanceof DomainError && e.code === code && e.status === 400,
+      );
+    rejects(null, 'verification_source_required');
+    rejects(fixture, 'test_fixture_not_verifiable');
   });
 });

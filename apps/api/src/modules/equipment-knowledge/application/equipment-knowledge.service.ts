@@ -1,5 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type {
+  AddCapabilityLinkRequest,
+  AddTaskCapabilityRequest,
+  AddTaskCategoryRequest,
+  CapabilityImportance,
+  CreateCapabilityRequest,
+  CreateConstructionTaskRequest,
   CreateEquipmentCategoryRequest,
   CreateEquipmentModelRequest,
   CreateEquipmentSpecificationRequest,
@@ -11,8 +17,12 @@ import type {
 } from '@ee/contracts';
 import { CLOCK, type Clock } from '../../../platform/auth';
 import {
+  CapabilityExistsError,
+  CapabilityNotFoundError,
   CategoryExistsError,
   CategoryNotFoundError,
+  ConstructionTaskExistsError,
+  ConstructionTaskNotFoundError,
   convert,
   DefinitionExistsError,
   DefinitionNotFoundError,
@@ -22,11 +32,18 @@ import {
   ModelExistsError,
   ModelNotFoundError,
   NonNumericSpecificationError,
+  resolveLinkVerification,
   resolveSpecificationValue,
   resolveVerification,
   SourceNotFoundError,
   SpecificationNotFoundError,
   UnknownSpecificationCodeError,
+  type Capability,
+  type CapabilityLink,
+  type CapabilityModel,
+  type CapabilityTask,
+  type CategoryTask,
+  type ConstructionTask,
   type SpecConstraint,
   type EquipmentCategory,
   type EquipmentKnowledgeRepository,
@@ -36,6 +53,8 @@ import {
   type Manufacturer,
   type SpecificationDefinition,
   type SpecificationSource,
+  type TaskCapability,
+  type TaskCategory,
 } from '../domain';
 
 const VALUE_KEYS = ['numericValue', 'minValue', 'maxValue', 'unit', 'textValue'] as const;
@@ -150,7 +169,11 @@ export class EquipmentKnowledgeService {
   async getModel(id: string): Promise<EquipmentModelDetail> {
     const model = await this.repo.findModelById(id);
     if (!model) throw new ModelNotFoundError();
-    return { ...model, specifications: await this.repo.listSpecifications(id) };
+    const [specifications, capabilities] = await Promise.all([
+      this.repo.listSpecifications(id),
+      this.repo.listModelCapabilities(id),
+    ]);
+    return { ...model, specifications, capabilities };
   }
 
   async createModel(input: CreateEquipmentModelRequest): Promise<EquipmentModel> {
@@ -242,6 +265,151 @@ export class EquipmentKnowledgeService {
     );
     if (!updated) throw new SpecificationNotFoundError();
     return updated;
+  }
+
+  listCapabilities(): Promise<Capability[]> {
+    return this.repo.listCapabilities();
+  }
+
+  async createCapability(input: CreateCapabilityRequest): Promise<Capability> {
+    if (await this.repo.findCapabilityByCode(input.code)) throw new CapabilityExistsError();
+    return this.repo.createCapability(input);
+  }
+
+  findCapabilityByCode(code: string): Promise<Capability | null> {
+    return this.repo.findCapabilityByCode(code);
+  }
+
+  getCapability(code: string): Promise<Capability> {
+    return this.requireCapability(code);
+  }
+
+  /** Only models linked directly; a category link says nothing about its models. */
+  async listCapabilityModels(code: string): Promise<CapabilityModel[]> {
+    const capability = await this.requireCapability(code);
+    return this.repo.listCapabilityModels(capability.id);
+  }
+
+  async listCapabilityTasks(
+    code: string,
+    importance: CapabilityImportance | undefined,
+  ): Promise<CapabilityTask[]> {
+    const capability = await this.requireCapability(code);
+    return this.repo.listCapabilityTasks(capability.id, importance);
+  }
+
+  listConstructionTasks(): Promise<ConstructionTask[]> {
+    return this.repo.listConstructionTasks();
+  }
+
+  async createConstructionTask(input: CreateConstructionTaskRequest): Promise<ConstructionTask> {
+    if (await this.repo.findConstructionTaskByCode(input.code)) {
+      throw new ConstructionTaskExistsError();
+    }
+    return this.repo.createConstructionTask(input);
+  }
+
+  findConstructionTaskByCode(code: string): Promise<ConstructionTask | null> {
+    return this.repo.findConstructionTaskByCode(code);
+  }
+
+  getConstructionTask(id: string): Promise<ConstructionTask> {
+    return this.requireTask(id);
+  }
+
+  async addTaskCapability(
+    taskId: string,
+    input: AddTaskCapabilityRequest,
+  ): Promise<TaskCapability> {
+    await this.requireTask(taskId);
+    const capability = await this.requireCapability(input.capabilityCode);
+    return this.repo.addTaskCapability({
+      taskId,
+      capabilityId: capability.id,
+      importance: input.importance,
+    });
+  }
+
+  async listTaskCapabilities(taskId: string): Promise<TaskCapability[]> {
+    await this.requireTask(taskId);
+    return this.repo.listTaskCapabilities(taskId);
+  }
+
+  async addTaskCategory(taskId: string, input: AddTaskCategoryRequest): Promise<TaskCategory> {
+    await this.requireTask(taskId);
+    const category = await this.repo.findCategoryByCode(input.categoryCode);
+    if (!category) throw new CategoryNotFoundError();
+    return this.repo.addTaskCategory({
+      taskId,
+      categoryId: category.id,
+      suitability: input.suitability,
+    });
+  }
+
+  async listTaskCategories(taskId: string): Promise<TaskCategory[]> {
+    await this.requireTask(taskId);
+    return this.repo.listTaskCategories(taskId);
+  }
+
+  async addModelCapability(
+    modelId: string,
+    input: AddCapabilityLinkRequest,
+  ): Promise<CapabilityLink> {
+    if (!(await this.repo.findModelById(modelId))) throw new ModelNotFoundError();
+    const capability = await this.requireCapability(input.capabilityCode);
+    return this.repo.addModelCapability({
+      modelId,
+      capabilityId: capability.id,
+      ...(await this.resolveLink(input)),
+    });
+  }
+
+  async listModelCapabilities(modelId: string): Promise<CapabilityLink[]> {
+    if (!(await this.repo.findModelById(modelId))) throw new ModelNotFoundError();
+    return this.repo.listModelCapabilities(modelId);
+  }
+
+  async addCategoryCapability(
+    categoryId: string,
+    input: AddCapabilityLinkRequest,
+  ): Promise<CapabilityLink> {
+    if (!(await this.repo.findCategoryById(categoryId))) throw new CategoryNotFoundError();
+    const capability = await this.requireCapability(input.capabilityCode);
+    return this.repo.addCategoryCapability({
+      categoryId,
+      capabilityId: capability.id,
+      ...(await this.resolveLink(input)),
+    });
+  }
+
+  async listCategoryCapabilities(categoryId: string): Promise<CapabilityLink[]> {
+    if (!(await this.repo.findCategoryById(categoryId))) throw new CategoryNotFoundError();
+    return this.repo.listCategoryCapabilities(categoryId);
+  }
+
+  async listCategoryTasks(categoryId: string): Promise<CategoryTask[]> {
+    if (!(await this.repo.findCategoryById(categoryId))) throw new CategoryNotFoundError();
+    return this.repo.listCategoryTasks(categoryId);
+  }
+
+  private async resolveLink(input: AddCapabilityLinkRequest) {
+    return resolveLinkVerification({
+      requested: input.verificationStatus,
+      source: await this.findSource(input.sourceId ?? null),
+      now: this.clock.now(),
+    });
+  }
+
+  private async requireCapability(code: string): Promise<Capability> {
+    const capability = await this.repo.findCapabilityByCode(code);
+    if (!capability) throw new CapabilityNotFoundError();
+    return capability;
+  }
+
+  private async requireTask(id: string): Promise<ConstructionTask> {
+    const task = await this.repo.findConstructionTaskById(id);
+    if (!task) throw new ConstructionTaskNotFoundError();
+    return task;
   }
 
   private async findSource(id: string | null): Promise<SpecificationSource | null> {

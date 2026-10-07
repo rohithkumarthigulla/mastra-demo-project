@@ -1,8 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, exists, gte, ilike, lte, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, exists, gte, ilike, lte, or, sql, type SQL } from 'drizzle-orm';
 import { DB, isUniqueViolation, type Database } from '../../../platform/database';
 import {
+  capabilities,
+  constructionTaskCapabilities,
+  constructionTaskCategories,
+  constructionTasks,
   equipmentCategories,
+  equipmentCategoryCapabilities,
+  equipmentModelCapabilities,
   equipmentModels,
   equipmentSpecifications,
   manufacturers,
@@ -10,16 +16,28 @@ import {
   specificationSources,
 } from '../../../platform/database/schema';
 import {
+  CapabilityExistsError,
   CategoryExistsError,
+  ConstructionTaskExistsError,
   DefinitionExistsError,
+  LinkExistsError,
   ManufacturerExistsError,
   ModelExistsError,
   SpecificationExistsError,
+  type Capability,
+  type CapabilityImportance,
+  type CapabilityLink,
+  type CapabilityModel,
+  type CapabilityTask,
+  type CategoryTask,
+  type ConstructionTask,
   type EquipmentCategory,
   type EquipmentKnowledgeRepository,
   type EquipmentModel,
   type EquipmentModelStatus,
   type EquipmentSpecification,
+  type LinkVerification,
+  type LinkVerificationStatus,
   type Manufacturer,
   type ModelSearchCriteria,
   type SpecificationDefinition,
@@ -27,6 +45,9 @@ import {
   type SpecificationValue,
   type SpecificationValueType,
   type SpecificationVerification,
+  type TaskCapability,
+  type TaskCategory,
+  type TaskSuitability,
   type Unit,
 } from '../domain';
 
@@ -65,6 +86,24 @@ const specificationColumns = {
   createdAt: equipmentSpecifications.createdAt,
   updatedAt: equipmentSpecifications.updatedAt,
 };
+
+const sourceSummaryColumns = {
+  id: specificationSources.id,
+  sourceType: specificationSources.sourceType,
+  sourceName: specificationSources.sourceName,
+  referenceUrl: specificationSources.referenceUrl,
+};
+
+type LinkTable = typeof equipmentModelCapabilities | typeof equipmentCategoryCapabilities;
+
+function provenanceColumns(link: LinkTable) {
+  return {
+    verificationStatus: sql<LinkVerificationStatus>`${link.verificationStatus}`,
+    sourceId: link.sourceId,
+    verifiedAt: link.verifiedAt,
+    source: sourceSummaryColumns,
+  };
+}
 
 /** ILIKE pattern matching `text` literally anywhere in the value. */
 function containsPattern(text: string): string {
@@ -358,5 +397,219 @@ export class DrizzleEquipmentKnowledgeRepository implements EquipmentKnowledgeRe
       )
       .leftJoin(specificationSources, eq(specificationSources.id, equipmentSpecifications.sourceId))
       .$dynamic();
+  }
+
+  async createCapability(input: { code: string; displayName: string }): Promise<Capability> {
+    const [row] = await insertOrConflict(
+      this.db.insert(capabilities).values(input).returning(),
+      () => new CapabilityExistsError(),
+    );
+    return row!;
+  }
+
+  listCapabilities(): Promise<Capability[]> {
+    return this.db.select().from(capabilities).orderBy(asc(capabilities.code));
+  }
+
+  async findCapabilityByCode(code: string): Promise<Capability | null> {
+    const [row] = await this.db
+      .select()
+      .from(capabilities)
+      .where(eq(capabilities.code, code))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async createConstructionTask(input: {
+    code: string;
+    displayName: string;
+  }): Promise<ConstructionTask> {
+    const [row] = await insertOrConflict(
+      this.db.insert(constructionTasks).values(input).returning(),
+      () => new ConstructionTaskExistsError(),
+    );
+    return row!;
+  }
+
+  listConstructionTasks(): Promise<ConstructionTask[]> {
+    return this.db.select().from(constructionTasks).orderBy(asc(constructionTasks.code));
+  }
+
+  async findConstructionTaskById(id: string): Promise<ConstructionTask | null> {
+    const [row] = await this.db
+      .select()
+      .from(constructionTasks)
+      .where(eq(constructionTasks.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findConstructionTaskByCode(code: string): Promise<ConstructionTask | null> {
+    const [row] = await this.db
+      .select()
+      .from(constructionTasks)
+      .where(eq(constructionTasks.code, code))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async addModelCapability(
+    input: { modelId: string; capabilityId: string } & LinkVerification,
+  ): Promise<CapabilityLink> {
+    await insertOrConflict(
+      this.db.insert(equipmentModelCapabilities).values(input),
+      () => new LinkExistsError(),
+    );
+    const links = await this.selectCapabilityLinks(
+      equipmentModelCapabilities,
+      and(
+        eq(equipmentModelCapabilities.modelId, input.modelId),
+        eq(equipmentModelCapabilities.capabilityId, input.capabilityId),
+      ),
+    );
+    return links[0]!;
+  }
+
+  listModelCapabilities(modelId: string): Promise<CapabilityLink[]> {
+    return this.selectCapabilityLinks(
+      equipmentModelCapabilities,
+      eq(equipmentModelCapabilities.modelId, modelId),
+    );
+  }
+
+  listCapabilityModels(capabilityId: string): Promise<CapabilityModel[]> {
+    return this.db
+      .select({ model: modelColumns, ...provenanceColumns(equipmentModelCapabilities) })
+      .from(equipmentModelCapabilities)
+      .innerJoin(equipmentModels, eq(equipmentModels.id, equipmentModelCapabilities.modelId))
+      .innerJoin(manufacturers, eq(manufacturers.id, equipmentModels.manufacturerId))
+      .leftJoin(
+        specificationSources,
+        eq(specificationSources.id, equipmentModelCapabilities.sourceId),
+      )
+      .where(eq(equipmentModelCapabilities.capabilityId, capabilityId))
+      .orderBy(
+        sql`lower(${manufacturers.name})`,
+        sql`lower(${equipmentModels.modelName})`,
+        asc(equipmentModels.id),
+      );
+  }
+
+  async addCategoryCapability(
+    input: { categoryId: string; capabilityId: string } & LinkVerification,
+  ): Promise<CapabilityLink> {
+    await insertOrConflict(
+      this.db.insert(equipmentCategoryCapabilities).values(input),
+      () => new LinkExistsError(),
+    );
+    const links = await this.selectCapabilityLinks(
+      equipmentCategoryCapabilities,
+      and(
+        eq(equipmentCategoryCapabilities.categoryId, input.categoryId),
+        eq(equipmentCategoryCapabilities.capabilityId, input.capabilityId),
+      ),
+    );
+    return links[0]!;
+  }
+
+  listCategoryCapabilities(categoryId: string): Promise<CapabilityLink[]> {
+    return this.selectCapabilityLinks(
+      equipmentCategoryCapabilities,
+      eq(equipmentCategoryCapabilities.categoryId, categoryId),
+    );
+  }
+
+  async addTaskCapability(input: {
+    taskId: string;
+    capabilityId: string;
+    importance: CapabilityImportance;
+  }): Promise<TaskCapability> {
+    await insertOrConflict(
+      this.db.insert(constructionTaskCapabilities).values(input),
+      () => new LinkExistsError(),
+    );
+    const capability = await this.db
+      .select()
+      .from(capabilities)
+      .where(eq(capabilities.id, input.capabilityId));
+    return { capability: capability[0]!, importance: input.importance };
+  }
+
+  listTaskCapabilities(taskId: string): Promise<TaskCapability[]> {
+    return this.db
+      .select({ capability: capabilities, importance: constructionTaskCapabilities.importance })
+      .from(constructionTaskCapabilities)
+      .innerJoin(capabilities, eq(capabilities.id, constructionTaskCapabilities.capabilityId))
+      .where(eq(constructionTaskCapabilities.taskId, taskId))
+      .orderBy(asc(capabilities.code));
+  }
+
+  listCapabilityTasks(
+    capabilityId: string,
+    importance: CapabilityImportance | undefined,
+  ): Promise<CapabilityTask[]> {
+    return this.db
+      .select({ task: constructionTasks, importance: constructionTaskCapabilities.importance })
+      .from(constructionTaskCapabilities)
+      .innerJoin(constructionTasks, eq(constructionTasks.id, constructionTaskCapabilities.taskId))
+      .where(
+        and(
+          eq(constructionTaskCapabilities.capabilityId, capabilityId),
+          importance === undefined
+            ? undefined
+            : eq(constructionTaskCapabilities.importance, importance),
+        ),
+      )
+      .orderBy(asc(constructionTasks.code));
+  }
+
+  async addTaskCategory(input: {
+    taskId: string;
+    categoryId: string;
+    suitability: TaskSuitability;
+  }): Promise<TaskCategory> {
+    await insertOrConflict(
+      this.db.insert(constructionTaskCategories).values(input),
+      () => new LinkExistsError(),
+    );
+    const category = await this.findCategoryById(input.categoryId);
+    return { category: category!, suitability: input.suitability };
+  }
+
+  listTaskCategories(taskId: string): Promise<TaskCategory[]> {
+    return this.db
+      .select({
+        category: equipmentCategories,
+        suitability: constructionTaskCategories.suitability,
+      })
+      .from(constructionTaskCategories)
+      .innerJoin(
+        equipmentCategories,
+        eq(equipmentCategories.id, constructionTaskCategories.categoryId),
+      )
+      .where(eq(constructionTaskCategories.taskId, taskId))
+      .orderBy(asc(equipmentCategories.code));
+  }
+
+  listCategoryTasks(categoryId: string): Promise<CategoryTask[]> {
+    return this.db
+      .select({ task: constructionTasks, suitability: constructionTaskCategories.suitability })
+      .from(constructionTaskCategories)
+      .innerJoin(constructionTasks, eq(constructionTasks.id, constructionTaskCategories.taskId))
+      .where(eq(constructionTaskCategories.categoryId, categoryId))
+      .orderBy(asc(constructionTasks.code));
+  }
+
+  private selectCapabilityLinks(
+    link: LinkTable,
+    where: SQL | undefined,
+  ): Promise<CapabilityLink[]> {
+    return this.db
+      .select({ capability: capabilities, ...provenanceColumns(link) })
+      .from(link)
+      .innerJoin(capabilities, eq(capabilities.id, link.capabilityId))
+      .leftJoin(specificationSources, eq(specificationSources.id, link.sourceId))
+      .where(where)
+      .orderBy(asc(capabilities.code));
   }
 }

@@ -1,15 +1,26 @@
 import { randomUUID } from 'node:crypto';
 import {
+  CapabilityExistsError,
   CategoryExistsError,
+  ConstructionTaskExistsError,
   DefinitionExistsError,
+  LinkExistsError,
   ManufacturerExistsError,
   ModelExistsError,
   SpecificationExistsError,
+  type Capability,
+  type CapabilityImportance,
+  type CapabilityLink,
+  type CapabilityModel,
+  type CapabilityTask,
+  type CategoryTask,
+  type ConstructionTask,
   type EquipmentCategory,
   type EquipmentKnowledgeRepository,
   type EquipmentModel,
   type EquipmentModelStatus,
   type EquipmentSpecification,
+  type LinkVerification,
   type Manufacturer,
   type ModelSearchCriteria,
   type SpecConstraint,
@@ -18,10 +29,17 @@ import {
   type SpecificationValue,
   type SpecificationValueType,
   type SpecificationVerification,
+  type TaskCapability,
+  type TaskCategory,
+  type TaskSuitability,
   type Unit,
 } from '../domain';
 
 type SpecificationRow = Omit<EquipmentSpecification, 'definitionCode' | 'source'>;
+type ModelCapabilityRow = { modelId: string; capabilityId: string } & LinkVerification;
+type CategoryCapabilityRow = { categoryId: string; capabilityId: string } & LinkVerification;
+type TaskCapabilityRow = { taskId: string; capabilityId: string; importance: CapabilityImportance };
+type TaskCategoryRow = { taskId: string; categoryId: string; suitability: TaskSuitability };
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -32,6 +50,12 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
   readonly models: EquipmentModel[] = [];
   readonly specifications: SpecificationRow[] = [];
   readonly sources: SpecificationSource[] = [];
+  readonly capabilities: Capability[] = [];
+  readonly constructionTasks: ConstructionTask[] = [];
+  readonly modelCapabilities: ModelCapabilityRow[] = [];
+  readonly categoryCapabilities: CategoryCapabilityRow[] = [];
+  readonly taskCapabilities: TaskCapabilityRow[] = [];
+  readonly taskCategories: TaskCategoryRow[] = [];
 
   constructor(private readonly now: () => Date = () => new Date()) {}
 
@@ -244,20 +268,212 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
       .sort((a, b) => byText(a.definitionCode, b.definitionCode));
   }
 
+  async createCapability(input: { code: string; displayName: string }): Promise<Capability> {
+    if (this.capabilities.some((c) => c.code === input.code)) throw new CapabilityExistsError();
+    const row = { ...this.stamp(), ...input };
+    this.capabilities.push(row);
+    return { ...row };
+  }
+
+  async listCapabilities(): Promise<Capability[]> {
+    return this.capabilities.map((c) => ({ ...c })).sort((a, b) => byText(a.code, b.code));
+  }
+
+  async findCapabilityByCode(code: string): Promise<Capability | null> {
+    const row = this.capabilities.find((c) => c.code === code);
+    return row ? { ...row } : null;
+  }
+
+  async createConstructionTask(input: {
+    code: string;
+    displayName: string;
+  }): Promise<ConstructionTask> {
+    if (this.constructionTasks.some((t) => t.code === input.code)) {
+      throw new ConstructionTaskExistsError();
+    }
+    const row = { ...this.stamp(), ...input };
+    this.constructionTasks.push(row);
+    return { ...row };
+  }
+
+  async listConstructionTasks(): Promise<ConstructionTask[]> {
+    return this.constructionTasks.map((t) => ({ ...t })).sort((a, b) => byText(a.code, b.code));
+  }
+
+  async findConstructionTaskById(id: string): Promise<ConstructionTask | null> {
+    const row = this.constructionTasks.find((t) => t.id === id);
+    return row ? { ...row } : null;
+  }
+
+  async findConstructionTaskByCode(code: string): Promise<ConstructionTask | null> {
+    const row = this.constructionTasks.find((t) => t.code === code);
+    return row ? { ...row } : null;
+  }
+
+  async addModelCapability(input: ModelCapabilityRow): Promise<CapabilityLink> {
+    if (
+      this.modelCapabilities.some(
+        (l) => l.modelId === input.modelId && l.capabilityId === input.capabilityId,
+      )
+    ) {
+      throw new LinkExistsError();
+    }
+    this.modelCapabilities.push({ ...input });
+    return this.toCapabilityLink(input);
+  }
+
+  async listModelCapabilities(modelId: string): Promise<CapabilityLink[]> {
+    return this.sortByCapabilityCode(
+      this.modelCapabilities
+        .filter((l) => l.modelId === modelId)
+        .map((l) => this.toCapabilityLink(l)),
+    );
+  }
+
+  async listCapabilityModels(capabilityId: string): Promise<CapabilityModel[]> {
+    const manufacturerName = (m: EquipmentModel) =>
+      this.manufacturers.find((x) => x.id === m.manufacturerId)?.name.toLowerCase() ?? '';
+    return this.modelCapabilities
+      .filter((l) => l.capabilityId === capabilityId)
+      .map((l) => ({
+        model: { ...this.models.find((m) => m.id === l.modelId)! },
+        ...this.provenance(l),
+      }))
+      .sort(
+        (a, b) =>
+          byText(manufacturerName(a.model), manufacturerName(b.model)) ||
+          byText(a.model.modelName.toLowerCase(), b.model.modelName.toLowerCase()) ||
+          byText(a.model.id, b.model.id),
+      );
+  }
+
+  async addCategoryCapability(input: CategoryCapabilityRow): Promise<CapabilityLink> {
+    if (
+      this.categoryCapabilities.some(
+        (l) => l.categoryId === input.categoryId && l.capabilityId === input.capabilityId,
+      )
+    ) {
+      throw new LinkExistsError();
+    }
+    this.categoryCapabilities.push({ ...input });
+    return this.toCapabilityLink(input);
+  }
+
+  async listCategoryCapabilities(categoryId: string): Promise<CapabilityLink[]> {
+    return this.sortByCapabilityCode(
+      this.categoryCapabilities
+        .filter((l) => l.categoryId === categoryId)
+        .map((l) => this.toCapabilityLink(l)),
+    );
+  }
+
+  async addTaskCapability(input: TaskCapabilityRow): Promise<TaskCapability> {
+    if (
+      this.taskCapabilities.some(
+        (l) => l.taskId === input.taskId && l.capabilityId === input.capabilityId,
+      )
+    ) {
+      throw new LinkExistsError();
+    }
+    this.taskCapabilities.push({ ...input });
+    return { capability: this.capability(input.capabilityId), importance: input.importance };
+  }
+
+  async listTaskCapabilities(taskId: string): Promise<TaskCapability[]> {
+    return this.sortByCapabilityCode(
+      this.taskCapabilities
+        .filter((l) => l.taskId === taskId)
+        .map((l) => ({ capability: this.capability(l.capabilityId), importance: l.importance })),
+    );
+  }
+
+  async listCapabilityTasks(
+    capabilityId: string,
+    importance: CapabilityImportance | undefined,
+  ): Promise<CapabilityTask[]> {
+    return this.taskCapabilities
+      .filter(
+        (l) =>
+          l.capabilityId === capabilityId &&
+          (importance === undefined || l.importance === importance),
+      )
+      .map((l) => ({ task: this.task(l.taskId), importance: l.importance }))
+      .sort((a, b) => byText(a.task.code, b.task.code));
+  }
+
+  async addTaskCategory(input: TaskCategoryRow): Promise<TaskCategory> {
+    if (
+      this.taskCategories.some(
+        (l) => l.taskId === input.taskId && l.categoryId === input.categoryId,
+      )
+    ) {
+      throw new LinkExistsError();
+    }
+    this.taskCategories.push({ ...input });
+    return { category: this.category(input.categoryId), suitability: input.suitability };
+  }
+
+  async listTaskCategories(taskId: string): Promise<TaskCategory[]> {
+    return this.taskCategories
+      .filter((l) => l.taskId === taskId)
+      .map((l) => ({ category: this.category(l.categoryId), suitability: l.suitability }))
+      .sort((a, b) => byText(a.category.code, b.category.code));
+  }
+
+  async listCategoryTasks(categoryId: string): Promise<CategoryTask[]> {
+    return this.taskCategories
+      .filter((l) => l.categoryId === categoryId)
+      .map((l) => ({ task: this.task(l.taskId), suitability: l.suitability }))
+      .sort((a, b) => byText(a.task.code, b.task.code));
+  }
+
+  private capability(id: string): Capability {
+    return { ...this.capabilities.find((c) => c.id === id)! };
+  }
+
+  private task(id: string): ConstructionTask {
+    return { ...this.constructionTasks.find((t) => t.id === id)! };
+  }
+
+  private category(id: string): EquipmentCategory {
+    return { ...this.categories.find((c) => c.id === id)! };
+  }
+
+  private toCapabilityLink(row: { capabilityId: string } & LinkVerification): CapabilityLink {
+    return { capability: this.capability(row.capabilityId), ...this.provenance(row) };
+  }
+
+  private provenance(row: LinkVerification) {
+    return {
+      verificationStatus: row.verificationStatus,
+      sourceId: row.sourceId,
+      verifiedAt: row.verifiedAt,
+      source: this.sourceSummary(row.sourceId),
+    };
+  }
+
+  private sortByCapabilityCode<T extends { capability: Capability }>(rows: T[]): T[] {
+    return rows.sort((a, b) => byText(a.capability.code, b.capability.code));
+  }
+
+  private sourceSummary(id: string | null) {
+    const source = this.sources.find((s) => s.id === id);
+    return source
+      ? {
+          id: source.id,
+          sourceType: source.sourceType,
+          sourceName: source.sourceName,
+          referenceUrl: source.referenceUrl,
+        }
+      : null;
+  }
+
   private withCode(row: SpecificationRow): EquipmentSpecification {
     const definition = this.definitions.find((d) => d.id === row.definitionId);
-    const source = this.sources.find((s) => s.id === row.sourceId);
     return {
       ...row,
       definitionCode: definition?.code ?? '',
-      source: source
-        ? {
-            id: source.id,
-            sourceType: source.sourceType,
-            sourceName: source.sourceName,
-            referenceUrl: source.referenceUrl,
-          }
-        : null,
+      source: this.sourceSummary(row.sourceId),
     };
   }
 }

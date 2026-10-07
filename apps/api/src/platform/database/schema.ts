@@ -245,3 +245,136 @@ export const equipmentSpecifications = pgTable(
     ),
   ],
 );
+
+export const capabilityImportance = pgEnum('capability_importance', [
+  'REQUIRED',
+  'PREFERRED',
+  'OPTIONAL',
+]);
+
+export const taskSuitability = pgEnum('task_suitability', ['PRIMARY', 'SECONDARY']);
+
+export const capabilities = pgTable('capabilities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique('capabilities_code_unique'),
+  displayName: text('display_name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const constructionTasks = pgTable('construction_tasks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique('construction_tasks_code_unique'),
+  displayName: text('display_name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Provenance shared by model and category capability links. */
+function linkProvenanceColumns() {
+  return {
+    verificationStatus: verificationStatus('verification_status').notNull(),
+    sourceId: uuid('source_id').references(() => specificationSources.id, {
+      onDelete: 'restrict',
+    }),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  };
+}
+
+// A link exists, so it is never UNKNOWN; VERIFIED needs a source, and a TEST_FIXTURE
+// source is rejected by a trigger in the migration.
+function linkProvenanceChecks(
+  table: string,
+  t: { verificationStatus: AnyPgColumn; sourceId: AnyPgColumn; verifiedAt: AnyPgColumn },
+) {
+  return [
+    check(`${table}_status_chk`, sql`${t.verificationStatus} IN ('VERIFIED', 'REVIEW_REQUIRED')`),
+    check(
+      `${table}_verified_chk`,
+      sql`${t.verificationStatus} <> 'VERIFIED' OR ${t.sourceId} IS NOT NULL`,
+    ),
+    check(
+      `${table}_verified_at_chk`,
+      sql`(${t.verifiedAt} IS NOT NULL) = (${t.verificationStatus} = 'VERIFIED')`,
+    ),
+    index(`${table}_source_id_idx`).on(t.sourceId),
+  ];
+}
+
+export const equipmentModelCapabilities = pgTable(
+  'equipment_model_capabilities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => equipmentModels.id, { onDelete: 'cascade' }),
+    capabilityId: uuid('capability_id')
+      .notNull()
+      .references(() => capabilities.id, { onDelete: 'cascade' }),
+    ...linkProvenanceColumns(),
+  },
+  (t) => [
+    unique('equipment_model_capabilities_unique').on(t.modelId, t.capabilityId),
+    index('equipment_model_capabilities_capability_id_idx').on(t.capabilityId),
+    ...linkProvenanceChecks('equipment_model_capabilities', t),
+  ],
+);
+
+export const equipmentCategoryCapabilities = pgTable(
+  'equipment_category_capabilities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => equipmentCategories.id, { onDelete: 'cascade' }),
+    capabilityId: uuid('capability_id')
+      .notNull()
+      .references(() => capabilities.id, { onDelete: 'cascade' }),
+    ...linkProvenanceColumns(),
+  },
+  (t) => [
+    unique('equipment_category_capabilities_unique').on(t.categoryId, t.capabilityId),
+    index('equipment_category_capabilities_capability_id_idx').on(t.capabilityId),
+    ...linkProvenanceChecks('equipment_category_capabilities', t),
+  ],
+);
+
+export const constructionTaskCapabilities = pgTable(
+  'construction_task_capabilities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => constructionTasks.id, { onDelete: 'cascade' }),
+    capabilityId: uuid('capability_id')
+      .notNull()
+      .references(() => capabilities.id, { onDelete: 'cascade' }),
+    importance: capabilityImportance('importance').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('construction_task_capabilities_unique').on(t.taskId, t.capabilityId),
+    index('construction_task_capabilities_capability_id_idx').on(t.capabilityId, t.importance),
+  ],
+);
+
+export const constructionTaskCategories = pgTable(
+  'construction_task_categories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => constructionTasks.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => equipmentCategories.id, { onDelete: 'cascade' }),
+    suitability: taskSuitability('suitability').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('construction_task_categories_unique').on(t.taskId, t.categoryId),
+    index('construction_task_categories_category_id_idx').on(t.categoryId),
+  ],
+);

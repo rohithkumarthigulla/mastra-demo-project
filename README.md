@@ -144,9 +144,42 @@ Reference data about kinds of plant (`apps/api/src/modules/equipment-knowledge`,
 - **Errors.** 404 `*_not_found` for unknown ids or `definitionCode`; 409 `category_exists`, `manufacturer_exists`, `definition_exists`, `model_exists` (same name for the same manufacturer, regardless of case) and `specification_exists` (one value per definition per model).
 - The same rules are enforced by `CHECK` constraints and unique indexes in the database.
 
-`pnpm --filter @ee/api db:seed` loads reference data (6 categories, 8 manufacturers, 10 definitions, 15 models). It only adds what is missing, so it is safe to run again. The specification values are illustrative round numbers, **not manufacturer data**: they cite a `TEST_FIXTURE` source ("Seed reference data") and are `REVIEW_REQUIRED`, so they can never be marked `VERIFIED`.
+`pnpm --filter @ee/api db:seed` loads reference data (6 categories, 8 manufacturers, 10 definitions, 15 models, plus the taxonomy below). It only adds what is missing, so it is safe to run again. The specification values are illustrative round numbers, **not manufacturer data**: they cite a `TEST_FIXTURE` source ("Seed reference data") and are `REVIEW_REQUIRED`, so they can never be marked `VERIFIED`.
 
 Upgrading an existing database (migration `0004`) marks every existing value `REVIEW_REQUIRED` (or `UNKNOWN` when empty) with no source; running the seed afterwards attaches the fixture source to seeded values that have none.
+
+### Equipment taxonomy
+
+What equipment can do and which construction work needs it. A **capability** (`DEEP_EXCAVATION`, `LIFTING`, …) is a named ability and never carries a number — numbers stay in specifications. A **construction task** (`FOUNDATION_EXCAVATION`, …) is a kind of site work. Four kinds of link connect them, each unique per pair (a duplicate returns 409 `link_exists`):
+
+| Link                  | Extra fields                                              |
+| --------------------- | --------------------------------------------------------- |
+| model → capability    | `verificationStatus`, `verifiedAt`, `source` (provenance) |
+| category → capability | `verificationStatus`, `verifiedAt`, `source` (provenance) |
+| task → capability     | `importance`: `REQUIRED`, `PREFERRED` or `OPTIONAL`       |
+| task → category       | `suitability`: `PRIMARY` or `SECONDARY`                   |
+
+| Endpoint                                                    | Auth  | Body / query                                           |
+| ----------------------------------------------------------- | ----- | ------------------------------------------------------ |
+| `GET /capabilities`, `GET /capabilities/:code`              | —     |                                                        |
+| `POST /capabilities`                                        | ADMIN | `code`, `displayName` (409 `capability_exists`)        |
+| `GET /capabilities/:code/equipment-models`                  | —     |                                                        |
+| `GET /capabilities/:code/construction-tasks`                | —     | `?importance=`                                         |
+| `GET /construction-tasks`, `GET /construction-tasks/:id`    | —     |                                                        |
+| `POST /construction-tasks`                                  | ADMIN | `code`, `displayName` (409 `construction_task_exists`) |
+| `GET` / `POST /construction-tasks/:id/capabilities`         | ADMIN | `capabilityCode`, `importance`                         |
+| `GET` / `POST /construction-tasks/:id/equipment-categories` | ADMIN | `categoryCode`, `suitability`                          |
+| `GET` / `POST /equipment-models/:id/capabilities`           | ADMIN | `capabilityCode`, `verificationStatus?`, `sourceId?`   |
+| `GET` / `POST /equipment-categories/:id/capabilities`       | ADMIN | `capabilityCode`, `verificationStatus?`, `sourceId?`   |
+| `GET /equipment-categories/:id/construction-tasks`          | —     |                                                        |
+
+ADMIN applies to the `POST`s only; every `GET` is public. `GET /equipment-models/:id` also returns the model's `capabilities`.
+
+- **Model and category links are separate facts.** Linking a capability to a category says nothing about its models: `GET /capabilities/:code/equipment-models` returns only models linked directly.
+- **Provenance.** A link's `verificationStatus` is `REVIEW_REQUIRED` (default) or `VERIFIED`; it is never `UNKNOWN`. `VERIFIED` needs a source (400 `verification_source_required`) that is not a `TEST_FIXTURE` (400 `test_fixture_not_verifiable`), and sets `verifiedAt`. The database enforces the same rules with checks and a trigger.
+- **Importance and suitability** are stored vocabulary only; nothing ranks or recommends with them yet.
+
+The seed adds 11 capabilities, 9 construction tasks and links of all four kinds; model and category links cite the `TEST_FIXTURE` source and stay `REVIEW_REQUIRED`. Tables are created by migration `0006`.
 
 ## Client
 

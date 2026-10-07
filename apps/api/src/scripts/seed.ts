@@ -7,6 +7,7 @@ import { AuthModule } from '../platform/auth';
 import { ConfigModule, loadEnv } from '../platform/config';
 import { DatabaseModule } from '../platform/database';
 import { seedEquipmentKnowledge } from './seed-equipment-knowledge';
+import { seedTaxonomy } from './seed-taxonomy';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -18,8 +19,11 @@ async function main(): Promise<void> {
 
   const app = await NestFactory.createApplicationContext(SeedModule, { logger: ['error'] });
   try {
-    const created = await seedEquipmentKnowledge(app.get(EquipmentKnowledgeService));
+    const knowledge = app.get(EquipmentKnowledgeService);
+    const created = await seedEquipmentKnowledge(knowledge);
     console.log('Equipment knowledge seeded. Rows created:', created);
+    const taxonomy = await seedTaxonomy(knowledge);
+    console.log('Equipment taxonomy seeded. Rows created:', taxonomy);
   } finally {
     await app.close();
   }

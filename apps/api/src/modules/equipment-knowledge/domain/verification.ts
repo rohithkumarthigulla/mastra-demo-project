@@ -1,4 +1,6 @@
 import type {
+  LinkVerification,
+  LinkVerificationStatus,
   SpecificationSource,
   SpecificationValue,
   SpecificationVerification,
@@ -62,4 +64,25 @@ export function resolveVerification(input: VerificationInput): SpecificationVeri
   }
 
   return { verificationStatus: status, sourceId: source?.id ?? null, verifiedAt };
+}
+
+/**
+ * Decides provenance for a capability link: REVIEW_REQUIRED unless asked otherwise, and
+ * VERIFIED only with a source that is not a TEST_FIXTURE.
+ */
+export function resolveLinkVerification(input: {
+  requested: LinkVerificationStatus | undefined;
+  source: Pick<SpecificationSource, 'id' | 'sourceType'> | null;
+  now: Date;
+}): LinkVerification {
+  const status = input.requested ?? 'REVIEW_REQUIRED';
+  if (status === 'VERIFIED') {
+    if (!input.source) throw new VerificationSourceRequiredError();
+    if (input.source.sourceType === 'TEST_FIXTURE') throw new TestFixtureNotVerifiableError();
+  }
+  return {
+    verificationStatus: status,
+    sourceId: input.source?.id ?? null,
+    verifiedAt: status === 'VERIFIED' ? input.now : null,
+  };
 }
