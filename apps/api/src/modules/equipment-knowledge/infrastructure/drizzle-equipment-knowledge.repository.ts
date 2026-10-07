@@ -1,0 +1,276 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { and, asc, count, eq, sql } from 'drizzle-orm';
+import { DB, isUniqueViolation, type Database } from '../../../platform/database';
+import {
+  equipmentCategories,
+  equipmentModels,
+  equipmentSpecifications,
+  manufacturers,
+  specificationDefinitions,
+} from '../../../platform/database/schema';
+import {
+  CategoryExistsError,
+  DefinitionExistsError,
+  ManufacturerExistsError,
+  ModelExistsError,
+  SpecificationExistsError,
+  type EquipmentCategory,
+  type EquipmentKnowledgeRepository,
+  type EquipmentModel,
+  type EquipmentModelStatus,
+  type EquipmentSpecification,
+  type Manufacturer,
+  type SpecificationDefinition,
+  type SpecificationValue,
+  type SpecificationValueType,
+  type Unit,
+} from '../domain';
+
+const modelColumns = {
+  id: equipmentModels.id,
+  manufacturerId: equipmentModels.manufacturerId,
+  categoryId: equipmentModels.categoryId,
+  modelName: equipmentModels.modelName,
+  modelCode: equipmentModels.modelCode,
+  status: equipmentModels.status,
+  createdAt: equipmentModels.createdAt,
+  updatedAt: equipmentModels.updatedAt,
+};
+
+const specificationColumns = {
+  id: equipmentSpecifications.id,
+  modelId: equipmentSpecifications.modelId,
+  definitionId: equipmentSpecifications.definitionId,
+  definitionCode: specificationDefinitions.code,
+  numericValue: equipmentSpecifications.numericValue,
+  minValue: equipmentSpecifications.minValue,
+  maxValue: equipmentSpecifications.maxValue,
+  unit: equipmentSpecifications.unit,
+  textValue: equipmentSpecifications.textValue,
+  normalizedMin: equipmentSpecifications.normalizedMin,
+  normalizedMax: equipmentSpecifications.normalizedMax,
+  createdAt: equipmentSpecifications.createdAt,
+  updatedAt: equipmentSpecifications.updatedAt,
+};
+
+async function insertOrConflict<T>(insert: Promise<T>, conflict: () => Error): Promise<T> {
+  try {
+    return await insert;
+  } catch (error) {
+    if (isUniqueViolation(error)) throw conflict();
+    throw error;
+  }
+}
+
+@Injectable()
+export class DrizzleEquipmentKnowledgeRepository implements EquipmentKnowledgeRepository {
+  constructor(@Inject(DB) private readonly db: Database) {}
+
+  async createCategory(input: { code: string; displayName: string }): Promise<EquipmentCategory> {
+    const [row] = await insertOrConflict(
+      this.db.insert(equipmentCategories).values(input).returning(),
+      () => new CategoryExistsError(),
+    );
+    return row!;
+  }
+
+  listCategories(): Promise<EquipmentCategory[]> {
+    return this.db.select().from(equipmentCategories).orderBy(asc(equipmentCategories.code));
+  }
+
+  async findCategoryById(id: string): Promise<EquipmentCategory | null> {
+    const [row] = await this.db
+      .select()
+      .from(equipmentCategories)
+      .where(eq(equipmentCategories.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findCategoryByCode(code: string): Promise<EquipmentCategory | null> {
+    const [row] = await this.db
+      .select()
+      .from(equipmentCategories)
+      .where(eq(equipmentCategories.code, code))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async createManufacturer(input: { name: string }): Promise<Manufacturer> {
+    const [row] = await insertOrConflict(
+      this.db.insert(manufacturers).values(input).returning(),
+      () => new ManufacturerExistsError(),
+    );
+    return row!;
+  }
+
+  listManufacturers(): Promise<Manufacturer[]> {
+    return this.db
+      .select()
+      .from(manufacturers)
+      .orderBy(asc(sql`lower(${manufacturers.name})`), asc(manufacturers.id));
+  }
+
+  async findManufacturerById(id: string): Promise<Manufacturer | null> {
+    const [row] = await this.db
+      .select()
+      .from(manufacturers)
+      .where(eq(manufacturers.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findManufacturerByName(name: string): Promise<Manufacturer | null> {
+    const [row] = await this.db
+      .select()
+      .from(manufacturers)
+      .where(sql`lower(${manufacturers.name}) = lower(${name})`)
+      .limit(1);
+    return row ?? null;
+  }
+
+  async createDefinition(input: {
+    code: string;
+    displayName: string;
+    valueType: SpecificationValueType;
+    canonicalUnit: Unit | null;
+  }): Promise<SpecificationDefinition> {
+    const [row] = await insertOrConflict(
+      this.db.insert(specificationDefinitions).values(input).returning(),
+      () => new DefinitionExistsError(),
+    );
+    return row!;
+  }
+
+  listDefinitions(): Promise<SpecificationDefinition[]> {
+    return this.db
+      .select()
+      .from(specificationDefinitions)
+      .orderBy(asc(specificationDefinitions.code));
+  }
+
+  async findDefinitionByCode(code: string): Promise<SpecificationDefinition | null> {
+    const [row] = await this.db
+      .select()
+      .from(specificationDefinitions)
+      .where(eq(specificationDefinitions.code, code))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async createModel(input: {
+    manufacturerId: string;
+    categoryId: string;
+    modelName: string;
+    modelCode: string | null;
+    status: EquipmentModelStatus;
+  }): Promise<EquipmentModel> {
+    const [row] = await insertOrConflict(
+      this.db.insert(equipmentModels).values(input).returning(),
+      () => new ModelExistsError(),
+    );
+    return row!;
+  }
+
+  async listModels(page: { limit: number; offset: number }): Promise<{
+    items: EquipmentModel[];
+    total: number;
+  }> {
+    const [items, [totals]] = await Promise.all([
+      this.db
+        .select(modelColumns)
+        .from(equipmentModels)
+        .innerJoin(manufacturers, eq(manufacturers.id, equipmentModels.manufacturerId))
+        .orderBy(
+          asc(sql`lower(${manufacturers.name})`),
+          asc(sql`lower(${equipmentModels.modelName})`),
+          asc(equipmentModels.id),
+        )
+        .limit(page.limit)
+        .offset(page.offset),
+      this.db.select({ total: count() }).from(equipmentModels),
+    ]);
+    return { items, total: totals?.total ?? 0 };
+  }
+
+  async findModelById(id: string): Promise<EquipmentModel | null> {
+    const [row] = await this.db
+      .select(modelColumns)
+      .from(equipmentModels)
+      .where(eq(equipmentModels.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findModelByName(manufacturerId: string, modelName: string): Promise<EquipmentModel | null> {
+    const [row] = await this.db
+      .select(modelColumns)
+      .from(equipmentModels)
+      .where(
+        and(
+          eq(equipmentModels.manufacturerId, manufacturerId),
+          sql`lower(${equipmentModels.modelName}) = lower(${modelName})`,
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async createSpecification(
+    input: { modelId: string; definitionId: string } & SpecificationValue,
+  ): Promise<EquipmentSpecification> {
+    const [row] = await insertOrConflict(
+      this.db
+        .insert(equipmentSpecifications)
+        .values(input)
+        .returning({ id: equipmentSpecifications.id }),
+      () => new SpecificationExistsError(),
+    );
+    return (await this.findSpecification(input.modelId, row!.id))!;
+  }
+
+  async findSpecification(
+    modelId: string,
+    specificationId: string,
+  ): Promise<EquipmentSpecification | null> {
+    const [row] = await this.selectSpecifications()
+      .where(
+        and(
+          eq(equipmentSpecifications.modelId, modelId),
+          eq(equipmentSpecifications.id, specificationId),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async updateSpecification(
+    specificationId: string,
+    value: SpecificationValue,
+    updatedAt: Date,
+  ): Promise<EquipmentSpecification | null> {
+    const [row] = await this.db
+      .update(equipmentSpecifications)
+      .set({ ...value, updatedAt })
+      .where(eq(equipmentSpecifications.id, specificationId))
+      .returning({ modelId: equipmentSpecifications.modelId });
+    return row ? this.findSpecification(row.modelId, specificationId) : null;
+  }
+
+  listSpecifications(modelId: string): Promise<EquipmentSpecification[]> {
+    return this.selectSpecifications()
+      .where(eq(equipmentSpecifications.modelId, modelId))
+      .orderBy(asc(specificationDefinitions.code));
+  }
+
+  private selectSpecifications() {
+    return this.db
+      .select(specificationColumns)
+      .from(equipmentSpecifications)
+      .innerJoin(
+        specificationDefinitions,
+        eq(specificationDefinitions.id, equipmentSpecifications.definitionId),
+      )
+      .$dynamic();
+  }
+}
