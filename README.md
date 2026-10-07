@@ -28,31 +28,43 @@ docs/knowledge/         reference material for the AI assistants
 docker-compose.yml      PostgreSQL 17 with pgvector
 ```
 
-## Getting started
+## Run it
 
 Requirements: Node 22 (see `.nvmrc`), pnpm, Docker.
 
 ```sh
 pnpm install
+cp apps/api/.env.example apps/api/.env
+pnpm db:up                          # start PostgreSQL on localhost:5432
 pnpm build
-pnpm db:up                        # start PostgreSQL on localhost:5432
-pnpm --filter @ee/api start       # api on http://localhost:3000
-curl http://localhost:3000/health # {"status":"ok"}
-pnpm --filter @ee/client web      # client in the browser
+pnpm --filter @ee/api db:migrate    # apply database migrations
+pnpm --filter @ee/api start         # api on http://localhost:3000
+curl http://localhost:3000/health   # {"status":"ok"}
+pnpm --filter @ee/client web        # client in the browser
 ```
 
-Copy `apps/api/.env.example` to configure `PORT` and `DATABASE_URL`.
+The api validates its environment on startup and exits with a clear message if anything is missing:
+
+| Variable       | Required | Meaning                                                 |
+| -------------- | -------- | ------------------------------------------------------- |
+| `DATABASE_URL` | yes      | PostgreSQL connection string                            |
+| `PORT`         | no       | port to listen on (default `3000`)                      |
+| `CORS_ORIGINS` | no       | comma-separated allowed origins; CORS is off when empty |
+
+`GET /health` returns 503 `{"code":"database_unavailable",...}` when the database is down or migrations have not been applied.
 
 ## Scripts
 
-| Script              | What it does                                        |
-| ------------------- | --------------------------------------------------- |
-| `pnpm build`        | builds contracts, api and the client web export     |
-| `pnpm typecheck`    | runs `tsc --noEmit` in every package                |
-| `pnpm lint`         | ESLint over the whole repo                          |
-| `pnpm format:check` | Prettier check                                      |
-| `pnpm test`         | Vitest in every package                             |
-| `pnpm db:up`        | starts PostgreSQL 17 + pgvector with Docker Compose |
-| `pnpm db:down`      | stops it                                            |
+| Script                              | What it does                                                                        |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `pnpm build`                        | builds contracts, api and the client web export                                     |
+| `pnpm typecheck`                    | runs `tsc --noEmit` in every package                                                |
+| `pnpm lint`                         | ESLint over the whole repo                                                          |
+| `pnpm format:check`                 | Prettier check                                                                      |
+| `pnpm test`                         | Node test runner over `dist/` for the api, Vitest elsewhere; run `pnpm build` first |
+| `pnpm db:up`                        | starts PostgreSQL 17 + pgvector with Docker Compose                                 |
+| `pnpm db:down`                      | stops it                                                                            |
+| `pnpm --filter @ee/api db:generate` | generates a migration from `src/platform/database/schema.ts`                        |
+| `pnpm --filter @ee/api db:migrate`  | applies pending migrations                                                          |
 
-CI should run the same checks on every push and smoke-test `GET /health`.
+CI (`.github/workflows/ci.yml`) runs these checks against PostgreSQL on every push and pull request, then smoke-tests `GET /health`.

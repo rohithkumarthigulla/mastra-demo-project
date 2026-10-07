@@ -1,4 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, type DynamicModule } from '@nestjs/common';
+import { ConfigModule, type Env } from './platform/config';
+import { DatabaseModule } from './platform/database';
 import { AccountsModule } from './modules/accounts/accounts.module';
 import { SupplierProfilesModule } from './modules/supplier-profiles/supplier-profiles.module';
 import { ReferenceModule } from './modules/reference/reference.module';
@@ -16,24 +18,31 @@ import { AiModule } from './modules/ai/ai.module';
 import { EquipmentAssistantModule } from './modules/equipment-assistant/equipment-assistant.module';
 import { SupplierAgentModule } from './modules/supplier-agent/supplier-agent.module';
 
-@Module({
-  imports: [
-    AccountsModule,
-    SupplierProfilesModule,
-    ReferenceModule,
-    HealthModule,
-    EquipmentKnowledgeModule,
-    EquipmentListingsModule,
-    FleetModule,
-    AvailabilityModule,
-    RentalRequestsModule,
-    QuotesModule,
-    BookingsModule,
-    RequirementsModule,
-    NotificationsModule,
-    AiModule,
-    EquipmentAssistantModule,
-    SupplierAgentModule,
-  ],
-})
-export class AppModule {}
+@Module({})
+export class AppModule {
+  static forRoot(env: Env): DynamicModule {
+    return {
+      module: AppModule,
+      imports: [
+        ConfigModule.forRoot(env),
+        DatabaseModule,
+        AccountsModule,
+        SupplierProfilesModule,
+        ReferenceModule,
+        HealthModule,
+        EquipmentKnowledgeModule,
+        EquipmentListingsModule,
+        FleetModule,
+        AvailabilityModule,
+        RentalRequestsModule,
+        QuotesModule,
+        BookingsModule,
+        RequirementsModule,
+        NotificationsModule,
+        AiModule,
+        EquipmentAssistantModule,
+        SupplierAgentModule,
+      ],
+    };
+  }
+}
