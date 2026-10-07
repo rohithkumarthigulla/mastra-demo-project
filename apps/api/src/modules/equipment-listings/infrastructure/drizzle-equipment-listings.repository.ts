@@ -6,6 +6,7 @@ import {
   equipmentCategories,
   equipmentListings,
   equipmentModels,
+  equipmentUnits,
   listingMedia,
   manufacturers,
   supplierProfiles,
@@ -184,6 +185,15 @@ export class DrizzleEquipmentListingsRepository implements EquipmentListingRepos
       ),
       filters,
     );
+  }
+
+  /** Counted here rather than through FleetModule to avoid a module cycle. */
+  async countActiveUnits(listingId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(equipmentUnits)
+      .where(and(eq(equipmentUnits.listingId, listingId), eq(equipmentUnits.status, 'ACTIVE')));
+    return row?.total ?? 0;
   }
 
   private async page(where: SQL | undefined, page: Page): Promise<ListingPageResult> {

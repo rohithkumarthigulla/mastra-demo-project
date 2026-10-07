@@ -96,6 +96,8 @@ export async function createApp() {
   seed(repo);
   const mediaRepo = new InMemoryListingMediaRepository();
   repo.photosFor = mediaRepo.photosFor;
+  const activeUnits = new Map<string, number>();
+  repo.activeUnitsFor = (listingId) => activeUnits.get(listingId) ?? 0;
   const dir = await mkdtemp(join(tmpdir(), 'listing-media-'));
   mediaDir = dir;
   const storage = new LocalDiskMediaStorage(dir);
@@ -167,6 +169,7 @@ export async function createApp() {
 
   async function createPublished(token: string, overrides: object = {}) {
     const listing = await createListing(token, overrides);
+    activeUnits.set(listing.id, 1);
     const res = await request('POST', `/supplier/listings/${listing.id}/publish`, token);
     assert.equal(res.statusCode, 200, res.body);
     return listing;
@@ -209,5 +212,6 @@ export async function createApp() {
     createPublished,
     mediaRepo,
     mediaDir: dir,
+    activeUnits,
   };
 }

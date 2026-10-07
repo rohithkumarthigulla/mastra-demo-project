@@ -66,6 +66,7 @@ describe('listing photos (integration)', () => {
     assert.equal(draftPhoto.statusCode, 404);
     assert.equal(draftPhoto.json().code, 'media_not_found');
 
+    http.activeUnits.set(listing.id, 1);
     await http.request('POST', `/supplier/listings/${listing.id}/publish`, http.supplierA);
     const pub = await http.request('GET', `/equipment-listings/${listing.id}`);
     assert.equal(pub.statusCode, 200);
@@ -235,6 +236,7 @@ describe('listing photos (integration)', () => {
       404,
     );
 
+    http.activeUnits.set(listing.id, 1);
     await http.request('POST', `/supplier/listings/${listing.id}/publish`, http.supplierA);
     assert.equal((await http.request('GET', photo.url)).statusCode, 200);
     await http.request('POST', `/supplier/listings/${listing.id}/deactivate`, http.supplierA);

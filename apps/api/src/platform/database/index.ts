@@ -1,2 +1,2 @@
 export { DatabaseModule, DB, PG_POOL, type Database } from './database.module';
-export { isUniqueViolation } from './errors';
+export { findPgError, isExclusionViolation, isUniqueViolation } from './errors';

@@ -10,6 +10,7 @@ import {
   EQUIPMENT_LISTING_REPOSITORY,
   InvalidCityError,
   InvalidListingTransitionError,
+  ListingHasNoActiveUnitsError,
   InvalidModelError,
   ListingNotFoundError,
   SupplierProfileRequiredError,
@@ -105,6 +106,9 @@ export class EquipmentListingsService {
     if (!current) throw new ListingNotFoundError();
     const to = nextStatus(current.status, action);
     if (!to) throw new InvalidListingTransitionError(action, current.status);
+    if (action === 'publish' && (await this.listings.countActiveUnits(id)) === 0) {
+      throw new ListingHasNoActiveUnitsError();
+    }
     const changed = await this.listings.setStatus(
       id,
       profileId,
