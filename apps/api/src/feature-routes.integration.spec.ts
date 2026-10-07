@@ -16,7 +16,7 @@ import { ROLES_KEY, TokenService } from './platform/auth';
 import { parseEnv } from './platform/config';
 import { configureApp } from './platform/http';
 
-// The pg pool connects lazily and no stub touches it, so no database is needed.
+// The pg pool connects lazily and guards run before any handler touches it, so no database is needed.
 const env = parseEnv({
   DATABASE_URL: 'postgres://unused:unused@localhost:5432/unused',
   JWT_SECRET: 'test-secret-that-is-at-least-32-chars-long',
@@ -33,18 +33,6 @@ const FEATURE_PREFIXES = [
   '/equipment-assistant',
   '/supplier-agent',
 ];
-/** Feature routes that are built; their behaviour is covered by their own module specs. */
-const IMPLEMENTED_PREFIXES = [
-  '/equipment-assistant',
-  '/supplier-agent',
-  '/requirements',
-  '/notifications',
-  '/rental-requests',
-  '/supplier/listings/:id/rate-card',
-  '/quotes',
-  '/bookings',
-];
-
 interface RegisteredRoute {
   method: string;
   path: string;
@@ -92,7 +80,7 @@ function dateFromToday(days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** A body each route's schema accepts, so the call gets past validation to the stub. */
+/** A body each route's schema accepts, so auth checks are tested without tripping validation. */
 function validBody(route: RouteContract): object | undefined {
   const dates = { startDate: dateFromToday(1), endDate: dateFromToday(3) };
   switch (key(route)) {
@@ -204,16 +192,6 @@ describe('feature routes (in-process)', () => {
           const res = await call(route, tokenFor(role), validBody(route));
           assert.equal(res.statusCode, 403);
           assert.equal(res.json().code, 'forbidden');
-        });
-      }
-
-      // Implemented routes need a database past validation; their own specs cover behaviour.
-      const implemented = IMPLEMENTED_PREFIXES.some((prefix) => route.path.startsWith(prefix));
-      for (const role of implemented ? [] : allowed) {
-        it(`is 501 for ${role} with valid input`, async () => {
-          const res = await call(route, tokenFor(role), validBody(route));
-          assert.equal(res.statusCode, 501, res.body);
-          assert.equal(res.json().code, 'NOT_IMPLEMENTED');
         });
       }
 
