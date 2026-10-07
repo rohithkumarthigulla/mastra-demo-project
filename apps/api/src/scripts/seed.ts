@@ -3,6 +3,9 @@ import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { EquipmentKnowledgeService } from '../modules/equipment-knowledge/application';
 import { EquipmentKnowledgeModule } from '../modules/equipment-knowledge/equipment-knowledge.module';
+import { ReferenceService } from '../modules/reference/application';
+import { ReferenceModule } from '../modules/reference/reference.module';
+import { seedReference } from '../modules/reference/seed/seed-reference';
 import { AuthModule } from '../platform/auth';
 import { ConfigModule, loadEnv } from '../platform/config';
 import { DatabaseModule } from '../platform/database';
@@ -13,7 +16,13 @@ async function main(): Promise<void> {
   const env = loadEnv();
 
   @Module({
-    imports: [ConfigModule.forRoot(env), DatabaseModule, AuthModule, EquipmentKnowledgeModule],
+    imports: [
+      ConfigModule.forRoot(env),
+      DatabaseModule,
+      AuthModule,
+      EquipmentKnowledgeModule,
+      ReferenceModule,
+    ],
   })
   class SeedModule {}
 
@@ -24,6 +33,8 @@ async function main(): Promise<void> {
     console.log('Equipment knowledge seeded. Rows created:', created);
     const taxonomy = await seedTaxonomy(knowledge);
     console.log('Equipment taxonomy seeded. Rows created:', taxonomy);
+    const reference = await seedReference(app.get(ReferenceService));
+    console.log('Reference data seeded. Rows created:', reference);
   } finally {
     await app.close();
   }

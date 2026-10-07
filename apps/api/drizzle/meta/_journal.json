@@ -50,6 +50,13 @@
       "when": 1791363277607,
       "tag": "0006_equipment_taxonomy",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791363760319,
+      "tag": "0007_reference_data",
+      "breakpoints": true
     }
   ]
 }

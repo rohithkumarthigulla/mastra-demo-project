@@ -181,6 +181,24 @@ ADMIN applies to the `POST`s only; every `GET` is public. `GET /equipment-models
 
 The seed adds 11 capabilities, 9 construction tasks and links of all four kinds; model and category links cite the `TEST_FIXTURE` source and stay `REVIEW_REQUIRED`. Tables are created by migration `0006`.
 
+## Reference data
+
+`GET /public/reference` is unauthenticated and returns `{ cities, entityTypes }` with `Cache-Control: public, max-age=300`, for sign-up forms and city pickers.
+
+- **Cities** (`geoId`, `name`, `state`, `enabled`), ordered by name. `geoId` is a stable code such as `IN-HYD`. `enabled` marks where the marketplace operates.
+- **Entity types** (`code`, `name`), ordered by code: Indian business forms such as `SOLE_PROPRIETORSHIP`, `LLP` and `PRIVATE_LIMITED`.
+
+The seed inserts 16 Indian cities (Hyderabad, Bengaluru, Mumbai, Delhi, Chennai and Pune are enabled) and 5 entity types. It only inserts what is missing, so it never overwrites a city enabled since. Tables are created by migration `0007`.
+
+## Money
+
+Every amount is in rupees with at most two decimals: typed, sent, stored (`numeric(14,2)`) and shown the same way.
+
+- `@ee/contracts` (`packages/contracts/src/money.ts`): `roundRupees(value)` rounds to paise, half away from zero, without float errors (`roundRupees(1.005) === 1.01`, `roundRupees(0.1 + 0.2) === 0.3`). `rupeesSchema` takes non-negative amounts with at most two decimals, so `1.005` is rejected. `rateSchema` adds a ceiling of 1,000,000. `signedRupeesSchema` allows negatives.
+- `apps/api/src/platform/money.ts`: `readNumeric` parses a `numeric` column (a string from pg) into a number. `toNumericString` formats an amount for writing. `addRupees` and `multiplyRupees` round after every step.
+
+No table stores money yet.
+
 ## Client
 
 The Expo app (`apps/client`) signs people in and sends them to the area for their role.

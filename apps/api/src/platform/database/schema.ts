@@ -1,5 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import {
+  boolean,
   check,
   date,
   doublePrecision,
@@ -378,3 +379,23 @@ export const constructionTaskCategories = pgTable(
     index('construction_task_categories_category_id_idx').on(t.categoryId),
   ],
 );
+
+/** Cities the marketplace knows about; `enabled` marks where it operates. */
+export const cities = pgTable('cities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  geoId: text('geo_id').notNull().unique('cities_geo_id_unique'),
+  name: text('name').notNull(),
+  state: text('state').notNull(),
+  enabled: boolean('enabled').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Legal forms a business can register as (proprietorship, LLP, …). */
+export const entityTypes = pgTable('entity_types', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique('entity_types_code_unique'),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
