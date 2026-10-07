@@ -13,6 +13,15 @@ export class InvalidListingTransitionError extends ConflictError {
   }
 }
 
+export class ListingHasNoActiveUnitsError extends ConflictError {
+  constructor() {
+    super(
+      'listing_has_no_active_units',
+      'Add at least one active machine to this listing before publishing it',
+    );
+  }
+}
+
 export class SupplierProfileRequiredError extends ConflictError {
   constructor() {
     super('supplier_profile_required', 'Create a supplier profile before managing listings');

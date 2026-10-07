@@ -1,7 +1,17 @@
-/** Postgres unique_violation; drizzle may wrap the driver error in `cause`. */
-export function isUniqueViolation(error: unknown): boolean {
+interface PgError {
+  code: string;
+  constraint?: string;
+}
+
+/** The Postgres error with `code` (e.g. `23505`); drizzle may wrap the driver error in `cause`. */
+export function findPgError(error: unknown, code: string): PgError | null {
   for (let e = error; e && typeof e === 'object'; e = (e as { cause?: unknown }).cause) {
-    if ((e as { code?: unknown }).code === '23505') return true;
+    if ((e as { code?: unknown }).code === code) return e as PgError;
   }
-  return false;
+  return null;
+}
+
+/** Postgres unique_violation. */
+export function isUniqueViolation(error: unknown): boolean {
+  return findPgError(error, '23505') !== null;
 }

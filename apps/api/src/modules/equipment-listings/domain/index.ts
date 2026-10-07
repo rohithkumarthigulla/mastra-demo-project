@@ -4,6 +4,7 @@ export {
   InvalidMediaOrderError,
   InvalidModelError,
   InvalidUploadError,
+  ListingHasNoActiveUnitsError,
   ListingNotFoundError,
   MediaLimitReachedError,
   MediaNotFoundError,

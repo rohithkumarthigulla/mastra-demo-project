@@ -63,6 +63,7 @@ describe('equipment listings (integration)', () => {
     assert.equal((await http.request('GET', '/equipment-listings')).json().total, 0);
     assert.equal((await http.request('GET', `/equipment-listings/${created.id}`)).statusCode, 404);
 
+    http.activeUnits.set(created.id, 1);
     const published = await http.request(
       'POST',
       `/supplier/listings/${created.id}/publish`,
@@ -101,6 +102,31 @@ describe('equipment listings (integration)', () => {
       http.supplierA,
     );
     assert.equal(republished.json().status, 'ACTIVE');
+  });
+
+  it('refuses to publish a listing without an active machine', async () => {
+    const http = await createApp();
+    const draft = await http.createListing(http.supplierA);
+    const refused = await http.request(
+      'POST',
+      `/supplier/listings/${draft.id}/publish`,
+      http.supplierA,
+    );
+    assert.equal(refused.statusCode, 409);
+    assert.equal(refused.json().code, 'listing_has_no_active_units');
+    assert.equal(
+      (await http.request('GET', `/supplier/listings/${draft.id}`, http.supplierA)).json().status,
+      'DRAFT',
+    );
+
+    http.activeUnits.set(draft.id, 1);
+    const published = await http.request(
+      'POST',
+      `/supplier/listings/${draft.id}/publish`,
+      http.supplierA,
+    );
+    assert.equal(published.statusCode, 200);
+    assert.equal(published.json().status, 'ACTIVE');
   });
 
   it('rejects status transitions that are not allowed with 409', async () => {

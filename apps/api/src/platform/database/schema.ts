@@ -4,6 +4,7 @@ import {
   check,
   date,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   numeric,
@@ -438,6 +439,8 @@ export const equipmentListings = pgTable(
     index('equipment_listings_status_city_idx').on(t.status, t.cityId),
     index('equipment_listings_status_created_at_idx').on(t.status, t.createdAt),
     index('equipment_listings_model_id_idx').on(t.modelId),
+    // Target for fleet foreign keys that pin a unit to its supplier's own listing.
+    unique('equipment_listings_id_supplier_unique').on(t.id, t.supplierProfileId),
   ],
 );
 
@@ -465,5 +468,104 @@ export const listingMedia = pgTable(
     check('listing_media_position_chk', sql`${t.position} >= 0`),
     // Not unique so a reorder can rewrite positions row by row without deferred constraints.
     index('listing_media_listing_position_idx').on(t.listingId, t.position),
+  ],
+);
+
+/** A supplier's depot where machines are kept. */
+export const yards = pgTable(
+  'yards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    supplierProfileId: uuid('supplier_profile_id')
+      .notNull()
+      .references(() => supplierProfiles.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    cityId: uuid('city_id')
+      .notNull()
+      .references(() => cities.id, { onDelete: 'restrict' }),
+    address: text('address').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('yards_name_chk', sql`char_length(${t.name}) BETWEEN 1 AND 80`),
+    check('yards_address_chk', sql`char_length(${t.address}) <= 300`),
+    uniqueIndex('yards_supplier_name_idx').on(t.supplierProfileId, sql`lower(${t.name})`),
+    unique('yards_id_supplier_unique').on(t.id, t.supplierProfileId),
+  ],
+);
+
+export const unitCondition = pgEnum('unit_condition', ['NEW', 'EXCELLENT', 'GOOD', 'FAIR', 'POOR']);
+export const unitStatus = pgEnum('unit_status', ['ACTIVE', 'RETIRED']);
+
+/**
+ * One physical machine offered under a listing. The model is not stored: it always comes
+ * from the listing. Composite foreign keys keep the listing and yard within the unit's supplier.
+ */
+export const equipmentUnits = pgTable(
+  'equipment_units',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    supplierProfileId: uuid('supplier_profile_id')
+      .notNull()
+      .references(() => supplierProfiles.id, { onDelete: 'cascade' }),
+    listingId: uuid('listing_id').notNull(),
+    yardId: uuid('yard_id').notNull(),
+    modelYear: integer('model_year').notNull(),
+    condition: unitCondition('condition').notNull(),
+    label: text('label'),
+    status: unitStatus('status').notNull().default('ACTIVE'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'equipment_units_listing_fk',
+      columns: [t.listingId, t.supplierProfileId],
+      foreignColumns: [equipmentListings.id, equipmentListings.supplierProfileId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'equipment_units_yard_fk',
+      columns: [t.yardId, t.supplierProfileId],
+      foreignColumns: [yards.id, yards.supplierProfileId],
+    }).onDelete('restrict'),
+    check('equipment_units_model_year_chk', sql`${t.modelYear} BETWEEN 1950 AND 2100`),
+    check('equipment_units_label_chk', sql`char_length(${t.label}) BETWEEN 1 AND 80`),
+    unique('equipment_units_id_supplier_unique').on(t.id, t.supplierProfileId),
+    index('equipment_units_supplier_status_idx').on(t.supplierProfileId, t.status),
+    index('equipment_units_listing_status_idx').on(t.listingId, t.status),
+    index('equipment_units_yard_status_idx').on(t.yardId, t.status),
+  ],
+);
+
+export const assetIdentifierType = pgEnum('asset_identifier_type', [
+  'SERIAL_NUMBER',
+  'REGISTRATION_NUMBER',
+  'ENGINE_NUMBER',
+]);
+
+/** Serial, registration or engine number; unique per type within a supplier's fleet. */
+export const assetIdentifiers = pgTable(
+  'asset_identifiers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    supplierProfileId: uuid('supplier_profile_id').notNull(),
+    unitId: uuid('unit_id').notNull(),
+    type: assetIdentifierType('type').notNull(),
+    value: text('value').notNull(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'asset_identifiers_unit_fk',
+      columns: [t.unitId, t.supplierProfileId],
+      foreignColumns: [equipmentUnits.id, equipmentUnits.supplierProfileId],
+    }).onDelete('cascade'),
+    check('asset_identifiers_value_chk', sql`char_length(${t.value}) BETWEEN 1 AND 80`),
+    unique('asset_identifiers_unit_type_unique').on(t.unitId, t.type),
+    uniqueIndex('asset_identifiers_supplier_type_value_idx').on(
+      t.supplierProfileId,
+      t.type,
+      sql`lower(${t.value})`,
+    ),
   ],
 );

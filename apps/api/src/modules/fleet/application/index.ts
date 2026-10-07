@@ -1,1 +1,1 @@
-export {};
+export { FleetService } from './fleet.service';

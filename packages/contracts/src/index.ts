@@ -1,6 +1,7 @@
 export * from './accounts.js';
 export * from './equipment-knowledge.js';
 export * from './equipment-listing.js';
+export * from './fleet.js';
 export * from './health.js';
 export * from './listing-media.js';
 export * from './money.js';
