@@ -19,6 +19,7 @@ import {
   RequestStatusBadge,
   supplierErrorMessage,
 } from '../../../../features/supplier';
+import { requestStage, StageBar } from '../../../../features/progress';
 import { useTheme } from '../../../../features/theme';
 import { Button, ErrorMessage, Heading, LoadingIndicator, Screen } from '../../../../features/ui';
 
@@ -68,6 +69,7 @@ export default function RentalRequestScreen() {
           <Muted>From a requirement — other suppliers may be quoting too.</Muted>
         ) : null}
       </View>
+      <StageBar state={requestStage(r)} />
       <Card>
         <Field label="Builder" value={r.builderName} />
         <Field label="Listing" value={r.listing.title} />

@@ -41,7 +41,8 @@ import {
 const builder = (accountId: string): RequestViewer => ({ role: 'BUILDER', accountId });
 const supplier = (accountId: string): RequestViewer => ({ role: 'SUPPLIER', accountId });
 
-export const requestHref = (id: string) => `/rental-requests/${id}`;
+export const builderRequestHref = (id: string) => `/requests/${id}`;
+export const supplierRequestHref = (id: string) => `/supplier/pipeline/requests/${id}`;
 
 @Injectable()
 export class RentalRequestsService {
@@ -120,7 +121,7 @@ export class RentalRequestsService {
             kind: 'REQUEST_RECEIVED',
             title: `New rental request for ${listing.title}`,
             detail: `${body.startDate} to ${body.endDate}`,
-            href: requestHref(requestId),
+            href: supplierRequestHref(requestId),
           },
         ],
         tx,
@@ -177,7 +178,7 @@ export class RentalRequestsService {
             accountId: supplierAccountId,
             kind: 'REQUEST_WITHDRAWN',
             title: `${current.builderName} cancelled their request for ${current.listing.title}`,
-            href: requestHref(id),
+            href: supplierRequestHref(id),
           },
         ],
         tx,
@@ -207,7 +208,7 @@ export class RentalRequestsService {
             kind: 'REQUEST_DECLINED',
             title: `${current.supplierName} declined your request for ${current.listing.title}`,
             detail: body.reason ?? null,
-            href: requestHref(id),
+            href: builderRequestHref(id),
           },
         ],
         tx,
@@ -235,7 +236,7 @@ export class RentalRequestsService {
               accountId: first.builderAccountId,
               kind: 'JOB_VIEWED',
               title: `${current.supplierName} viewed your request for ${current.listing.title}`,
-              href: requestHref(id),
+              href: builderRequestHref(id),
             },
           ],
           tx,

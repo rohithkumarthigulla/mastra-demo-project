@@ -31,7 +31,7 @@ import { busyUnitIds, type Executor } from '../../availability/infrastructure/bu
 import { rentalRange } from '../../bookings/domain/booking';
 import { NotificationsService } from '../../notifications/application';
 import type { NotificationDraft } from '../../notifications/domain';
-import { requestHref } from '../../rental-requests/application/rental-requests.service';
+import { supplierRequestHref } from '../../rental-requests/application/rental-requests.service';
 import {
   IncompleteQuoteError,
   InvalidQuoteUnitError,
@@ -53,6 +53,7 @@ import { findQuoteDto, listQuoteDtos, type QuoteViewer } from '../infrastructure
 
 const quoteHref = (id: string) => `/quotes/${id}`;
 const bookingHref = (id: string) => `/bookings/${id}`;
+const supplierBookingHref = (id: string) => `/supplier/bookings/${id}`;
 
 interface RequestContext {
   id: string;
@@ -261,7 +262,7 @@ export class QuotesService {
             accountId: request.supplierAccountId,
             kind: 'QUOTE_ACCEPTED',
             title: `Your quote for ${request.listingTitle} was accepted`,
-            href: bookingHref(booking!.id),
+            href: supplierBookingHref(booking!.id),
           },
           {
             accountId: request.builderAccountId,
@@ -437,14 +438,14 @@ async function awardRequirement(
           accountId: ownerOf.get(r.listingId)!,
           kind: 'QUOTE_LOST',
           title: `Another supplier won "${title}"`,
-          href: requestHref(r.id),
+          href: supplierRequestHref(r.id),
         }
       : {
           accountId: ownerOf.get(r.listingId)!,
           kind: 'REQUEST_WITHDRAWN',
           title: `Request for "${title}" was withdrawn`,
           detail: 'The builder awarded the requirement to another supplier.',
-          href: requestHref(r.id),
+          href: supplierRequestHref(r.id),
         },
   );
 }

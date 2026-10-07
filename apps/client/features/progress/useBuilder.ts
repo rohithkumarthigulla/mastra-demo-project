@@ -10,7 +10,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   bookingKeys,
   notificationKeys,
-  type NotificationsQuery,
   quoteKeys,
   rentalRequestKeys,
   requirementKeys,
@@ -164,30 +163,4 @@ export function useCancelRequirementAction() {
   const api = useApi();
   const invalidate = useInvalidateRental();
   return useMutation({ mutationFn: (requirementId: string) => api.requirements.cancel(requirementId), onSuccess: invalidate });
-}
-
-export function useNotificationFeed(query: NotificationsQuery) {
-  const api = useApi();
-  return useQuery({
-    queryKey: notificationKeys.list(query),
-    queryFn: () => api.notifications.list(query),
-  });
-}
-
-export function useMarkRead() {
-  const api = useApi();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (notificationId: string) => api.notifications.markRead(notificationId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationKeys.all }),
-  });
-}
-
-export function useMarkAllRead() {
-  const api = useApi();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => api.notifications.markAllRead(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationKeys.all }),
-  });
 }
