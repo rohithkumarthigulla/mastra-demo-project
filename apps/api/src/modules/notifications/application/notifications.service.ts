@@ -40,9 +40,10 @@ export class NotificationsService {
    */
   async notify(rows: NotificationDraft[], tx?: DbExecutor): Promise<void> {
     if (rows.length === 0) return;
-    const withTones = rows.map(
-      (row): NewNotification => ({ ...row, tone: row.tone ?? NOTIFICATION_TONES[row.kind] }),
-    );
+    const withTones = rows.map((row): NewNotification => ({
+      ...row,
+      tone: row.tone ?? NOTIFICATION_TONES[row.kind],
+    }));
     await this.repo.insertMany(withTones, this.clock.now(), tx);
   }
 }

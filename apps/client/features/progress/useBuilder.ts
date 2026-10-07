@@ -40,7 +40,10 @@ function useInvalidateRental() {
 
 export function useMyRequests(query: Partial<ListMyRentalRequestsQuery> & Page) {
   const api = useApi();
-  return useQuery({ queryKey: rentalRequestKeys.mine(query), queryFn: () => api.rentalRequests.mine(query) });
+  return useQuery({
+    queryKey: rentalRequestKeys.mine(query),
+    queryFn: () => api.rentalRequests.mine(query),
+  });
 }
 
 export function useRequest(requestId: string) {
@@ -63,7 +66,10 @@ export function useCreateRequest() {
 export function useCancelRequest() {
   const api = useApi();
   const invalidate = useInvalidateRental();
-  return useMutation({ mutationFn: (requestId: string) => api.rentalRequests.cancel(requestId), onSuccess: invalidate });
+  return useMutation({
+    mutationFn: (requestId: string) => api.rentalRequests.cancel(requestId),
+    onSuccess: invalidate,
+  });
 }
 
 export function useQuoteDetail(quoteId: string) {
@@ -74,7 +80,10 @@ export function useQuoteDetail(quoteId: string) {
 export function useAcceptQuoteAction() {
   const api = useApi();
   const invalidate = useInvalidateRental();
-  return useMutation({ mutationFn: (quoteId: string) => api.quotes.accept(quoteId), onSuccess: invalidate });
+  return useMutation({
+    mutationFn: (quoteId: string) => api.quotes.accept(quoteId),
+    onSuccess: invalidate,
+  });
 }
 
 export function useRejectQuoteAction() {
@@ -89,7 +98,10 @@ export function useRejectQuoteAction() {
 
 export function useMyBookings(query: Partial<ListBookingsQuery> & Page) {
   const api = useApi();
-  return useQuery({ queryKey: bookingKeys.builder(query), queryFn: () => api.bookings.listForBuilder(query) });
+  return useQuery({
+    queryKey: bookingKeys.builder(query),
+    queryFn: () => api.bookings.listForBuilder(query),
+  });
 }
 
 export function useBookingDetail(bookingId: string) {
@@ -162,5 +174,8 @@ export function useSendRequirementAction() {
 export function useCancelRequirementAction() {
   const api = useApi();
   const invalidate = useInvalidateRental();
-  return useMutation({ mutationFn: (requirementId: string) => api.requirements.cancel(requirementId), onSuccess: invalidate });
+  return useMutation({
+    mutationFn: (requirementId: string) => api.requirements.cancel(requirementId),
+    onSuccess: invalidate,
+  });
 }

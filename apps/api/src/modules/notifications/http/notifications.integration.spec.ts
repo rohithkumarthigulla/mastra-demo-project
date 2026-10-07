@@ -174,7 +174,7 @@ describe('notifications', () => {
     assert.equal(theirs.unreadCount, 1);
   });
 
-  it("defaults the tone from the kind unless the caller sets one", async () => {
+  it('defaults the tone from the kind unless the caller sets one', async () => {
     const t = await createApp();
     await t.service.notify([
       { accountId: BUILDER, kind: 'BOOKING_CONFIRMED', title: 'default', href: '/bookings' },

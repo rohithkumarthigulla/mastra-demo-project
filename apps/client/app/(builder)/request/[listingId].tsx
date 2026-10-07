@@ -4,11 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { formErrorsFromApi, useSession, type FieldErrors } from '../../../features/auth';
-import {
-  Field,
-  formatDateRange,
-  useCreateRequest,
-} from '../../../features/progress';
+import { Field, formatDateRange, useCreateRequest } from '../../../features/progress';
 import {
   estimateRental,
   formatDailyRate,

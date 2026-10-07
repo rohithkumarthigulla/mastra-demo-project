@@ -4,11 +4,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { formErrorsFromApi, useSession } from '../auth';
 import { NotificationItem } from './NotificationItem';
-import {
-  useMarkAllNotificationsRead,
-  useMarkNotificationRead,
-  useNotifications,
-} from '../../api';
+import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from '../../api';
 import { useTheme } from '../theme';
 import {
   Button,
