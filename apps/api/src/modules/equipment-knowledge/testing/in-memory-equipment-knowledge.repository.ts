@@ -12,12 +12,14 @@ import {
   type EquipmentSpecification,
   type Manufacturer,
   type SpecificationDefinition,
+  type SpecificationSource,
   type SpecificationValue,
   type SpecificationValueType,
+  type SpecificationVerification,
   type Unit,
 } from '../domain';
 
-type SpecificationRow = Omit<EquipmentSpecification, 'definitionCode'>;
+type SpecificationRow = Omit<EquipmentSpecification, 'definitionCode' | 'source'>;
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -27,6 +29,7 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
   readonly definitions: SpecificationDefinition[] = [];
   readonly models: EquipmentModel[] = [];
   readonly specifications: SpecificationRow[] = [];
+  readonly sources: SpecificationSource[] = [];
 
   constructor(private readonly now: () => Date = () => new Date()) {}
 
@@ -53,6 +56,30 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
 
   async findCategoryByCode(code: string): Promise<EquipmentCategory | null> {
     const row = this.categories.find((c) => c.code === code);
+    return row ? { ...row } : null;
+  }
+
+  async createSource(
+    input: Omit<SpecificationSource, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<SpecificationSource> {
+    const row = { ...this.stamp(), ...input };
+    this.sources.push(row);
+    return { ...row };
+  }
+
+  async listSources(): Promise<SpecificationSource[]> {
+    return this.sources
+      .map((s) => ({ ...s }))
+      .sort(
+        (a, b) =>
+          byText(a.sourceType, b.sourceType) ||
+          byText(a.sourceName.toLowerCase(), b.sourceName.toLowerCase()) ||
+          byText(a.id, b.id),
+      );
+  }
+
+  async findSourceById(id: string): Promise<SpecificationSource | null> {
+    const row = this.sources.find((s) => s.id === id);
     return row ? { ...row } : null;
   }
 
@@ -147,7 +174,8 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
   }
 
   async createSpecification(
-    input: { modelId: string; definitionId: string } & SpecificationValue,
+    input: { modelId: string; definitionId: string } & SpecificationValue &
+      SpecificationVerification,
   ): Promise<EquipmentSpecification> {
     if (
       this.specifications.some(
@@ -171,7 +199,7 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
 
   async updateSpecification(
     specificationId: string,
-    value: SpecificationValue,
+    value: SpecificationValue & SpecificationVerification,
     updatedAt: Date,
   ): Promise<EquipmentSpecification | null> {
     const row = this.specifications.find((s) => s.id === specificationId);
@@ -189,6 +217,18 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
 
   private withCode(row: SpecificationRow): EquipmentSpecification {
     const definition = this.definitions.find((d) => d.id === row.definitionId);
-    return { ...row, definitionCode: definition?.code ?? '' };
+    const source = this.sources.find((s) => s.id === row.sourceId);
+    return {
+      ...row,
+      definitionCode: definition?.code ?? '',
+      source: source
+        ? {
+            id: source.id,
+            sourceType: source.sourceType,
+            sourceName: source.sourceName,
+            referenceUrl: source.referenceUrl,
+          }
+        : null,
+    };
   }
 }

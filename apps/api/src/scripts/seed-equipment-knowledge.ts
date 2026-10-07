@@ -6,7 +6,10 @@ import {
   seedModels,
 } from './equipment-knowledge-seed-data';
 
+export const SEED_SOURCE_NAME = 'Seed reference data';
+
 export interface SeedSummary {
+  sources: number;
   categories: number;
   manufacturers: number;
   definitions: number;
@@ -19,12 +22,27 @@ export async function seedEquipmentKnowledge(
   knowledge: EquipmentKnowledgeService,
 ): Promise<SeedSummary> {
   const created: SeedSummary = {
+    sources: 0,
     categories: 0,
     manufacturers: 0,
     definitions: 0,
     models: 0,
     specifications: 0,
   };
+
+  // Seeded values are illustrative: they cite a TEST_FIXTURE source, which can never be VERIFIED,
+  // so they default to REVIEW_REQUIRED (or UNKNOWN when deliberately empty).
+  let source = (await knowledge.listSources()).find(
+    (s) => s.sourceType === 'TEST_FIXTURE' && s.sourceName === SEED_SOURCE_NAME,
+  );
+  if (!source) {
+    source = await knowledge.createSource({
+      sourceType: 'TEST_FIXTURE',
+      sourceName: SEED_SOURCE_NAME,
+      notes: 'Illustrative values for development; not verified against manufacturer data.',
+    });
+    created.sources++;
+  }
 
   const categoryIds = new Map<string, string>();
   for (const input of seedCategories) {
@@ -68,13 +86,18 @@ export async function seedEquipmentKnowledge(
       });
       created.models++;
     }
-    const existing = new Set(
-      (await knowledge.getModel(model.id)).specifications.map((s) => s.definitionCode),
+    const existing = new Map(
+      (await knowledge.getModel(model.id)).specifications.map((s) => [s.definitionCode, s]),
     );
     for (const spec of seed.specifications) {
-      if (existing.has(spec.definitionCode)) continue;
-      await knowledge.addSpecification(model.id, spec);
-      created.specifications++;
+      const current = existing.get(spec.definitionCode);
+      if (!current) {
+        await knowledge.addSpecification(model.id, { ...spec, sourceId: source.id });
+        created.specifications++;
+      } else if (current.sourceId === null) {
+        // Rows seeded before sources existed were backfilled without one.
+        await knowledge.updateSpecification(model.id, current.id, { sourceId: source.id });
+      }
     }
   }
 

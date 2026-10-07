@@ -7,6 +7,7 @@ import {
   equipmentSpecifications,
   manufacturers,
   specificationDefinitions,
+  specificationSources,
 } from '../../../platform/database/schema';
 import {
   CategoryExistsError,
@@ -21,8 +22,10 @@ import {
   type EquipmentSpecification,
   type Manufacturer,
   type SpecificationDefinition,
+  type SpecificationSource,
   type SpecificationValue,
   type SpecificationValueType,
+  type SpecificationVerification,
   type Unit,
 } from '../domain';
 
@@ -49,6 +52,15 @@ const specificationColumns = {
   textValue: equipmentSpecifications.textValue,
   normalizedMin: equipmentSpecifications.normalizedMin,
   normalizedMax: equipmentSpecifications.normalizedMax,
+  verificationStatus: equipmentSpecifications.verificationStatus,
+  sourceId: equipmentSpecifications.sourceId,
+  verifiedAt: equipmentSpecifications.verifiedAt,
+  source: {
+    id: specificationSources.id,
+    sourceType: specificationSources.sourceType,
+    sourceName: specificationSources.sourceName,
+    referenceUrl: specificationSources.referenceUrl,
+  },
   createdAt: equipmentSpecifications.createdAt,
   updatedAt: equipmentSpecifications.updatedAt,
 };
@@ -92,6 +104,33 @@ export class DrizzleEquipmentKnowledgeRepository implements EquipmentKnowledgeRe
       .select()
       .from(equipmentCategories)
       .where(eq(equipmentCategories.code, code))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async createSource(
+    input: Omit<SpecificationSource, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<SpecificationSource> {
+    const [row] = await this.db.insert(specificationSources).values(input).returning();
+    return row!;
+  }
+
+  listSources(): Promise<SpecificationSource[]> {
+    return this.db
+      .select()
+      .from(specificationSources)
+      .orderBy(
+        asc(specificationSources.sourceType),
+        asc(sql`lower(${specificationSources.sourceName})`),
+        asc(specificationSources.id),
+      );
+  }
+
+  async findSourceById(id: string): Promise<SpecificationSource | null> {
+    const [row] = await this.db
+      .select()
+      .from(specificationSources)
+      .where(eq(specificationSources.id, id))
       .limit(1);
     return row ?? null;
   }
@@ -217,7 +256,8 @@ export class DrizzleEquipmentKnowledgeRepository implements EquipmentKnowledgeRe
   }
 
   async createSpecification(
-    input: { modelId: string; definitionId: string } & SpecificationValue,
+    input: { modelId: string; definitionId: string } & SpecificationValue &
+      SpecificationVerification,
   ): Promise<EquipmentSpecification> {
     const [row] = await insertOrConflict(
       this.db
@@ -246,7 +286,7 @@ export class DrizzleEquipmentKnowledgeRepository implements EquipmentKnowledgeRe
 
   async updateSpecification(
     specificationId: string,
-    value: SpecificationValue,
+    value: SpecificationValue & SpecificationVerification,
     updatedAt: Date,
   ): Promise<EquipmentSpecification | null> {
     const [row] = await this.db
@@ -271,6 +311,7 @@ export class DrizzleEquipmentKnowledgeRepository implements EquipmentKnowledgeRe
         specificationDefinitions,
         eq(specificationDefinitions.id, equipmentSpecifications.definitionId),
       )
+      .leftJoin(specificationSources, eq(specificationSources.id, equipmentSpecifications.sourceId))
       .$dynamic();
   }
 }

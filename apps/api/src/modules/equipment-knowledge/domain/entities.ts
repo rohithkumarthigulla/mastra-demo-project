@@ -1,6 +1,17 @@
-import type { EquipmentModelStatus, SpecificationValueType, Unit } from '@ee/contracts';
+import type {
+  EquipmentModelStatus,
+  SpecificationSourceType,
+  SpecificationValueType,
+  Unit,
+  VerificationStatus,
+} from '@ee/contracts';
 
-export type { EquipmentModelStatus, SpecificationValueType };
+export type {
+  EquipmentModelStatus,
+  SpecificationSourceType,
+  SpecificationValueType,
+  VerificationStatus,
+};
 
 export interface EquipmentCategory {
   id: string;
@@ -28,6 +39,31 @@ export interface SpecificationDefinition {
   updatedAt: Date;
 }
 
+export interface SpecificationSource {
+  id: string;
+  sourceType: SpecificationSourceType;
+  sourceName: string;
+  referenceUrl: string | null;
+  documentName: string | null;
+  /** Calendar date (YYYY-MM-DD). */
+  retrievedAt: string | null;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type SpecificationSourceSummary = Pick<
+  SpecificationSource,
+  'id' | 'sourceType' | 'sourceName' | 'referenceUrl'
+>;
+
+export interface SpecificationVerification {
+  verificationStatus: VerificationStatus;
+  sourceId: string | null;
+  /** Set only while VERIFIED. */
+  verifiedAt: Date | null;
+}
+
 export interface EquipmentModel {
   id: string;
   manufacturerId: string;
@@ -49,11 +85,12 @@ export interface SpecificationValue {
   normalizedMax: number | null;
 }
 
-export interface EquipmentSpecification extends SpecificationValue {
+export interface EquipmentSpecification extends SpecificationValue, SpecificationVerification {
   id: string;
   modelId: string;
   definitionId: string;
   definitionCode: string;
+  source: SpecificationSourceSummary | null;
   createdAt: Date;
   updatedAt: Date;
 }

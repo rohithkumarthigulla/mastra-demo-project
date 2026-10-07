@@ -107,27 +107,36 @@ Each `SUPPLIER` account can have one company profile (`apps/api/src/modules/supp
 
 Reference data about kinds of plant (`apps/api/src/modules/equipment-knowledge`, contracts in `packages/contracts/src/equipment-knowledge.ts`): categories, manufacturers, the models they make, and specifications for each model. Reads are public; every write needs the `ADMIN` role (401 signed out, 403 any other role).
 
-| Endpoint                                             | Body                                                                   | Success                                              |
-| ---------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
-| `GET /equipment-categories`                          |                                                                        | 200 list                                             |
-| `POST /equipment-categories`                         | `code` (`UPPER_SNAKE_CASE`), `displayName`                             | 201                                                  |
-| `GET /manufacturers`                                 |                                                                        | 200 list                                             |
-| `POST /manufacturers`                                | `name` (unique regardless of case)                                     | 201                                                  |
-| `GET /specification-definitions`                     |                                                                        | 200 list                                             |
-| `POST /specification-definitions`                    | `code`, `displayName`, `valueType` (`NUMERIC`/`TEXT`), `canonicalUnit` | 201                                                  |
-| `GET /equipment-models?limit=&offset=`               |                                                                        | 200 `{ items, limit, offset, total }`                |
-| `GET /equipment-models/:id`                          |                                                                        | 200 model with `specifications`                      |
-| `POST /equipment-models`                             | `manufacturerId`, `categoryId`, `modelName`, `modelCode?`, `status?`   | 201                                                  |
-| `POST /equipment-models/:id/specifications`          | `definitionCode` plus one value shape (below)                          | 201 specification with `normalizedMin/normalizedMax` |
-| `PATCH /equipment-models/:id/specifications/:specId` | any of the value fields; `null` clears one, omitted keeps it           | 200                                                  |
+| Endpoint                                             | Body                                                                                                  | Success                                                                                            |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `GET /equipment-categories`                          |                                                                                                       | 200 list                                                                                           |
+| `POST /equipment-categories`                         | `code` (`UPPER_SNAKE_CASE`), `displayName`                                                            | 201                                                                                                |
+| `GET /manufacturers`                                 |                                                                                                       | 200 list                                                                                           |
+| `POST /manufacturers`                                | `name` (unique regardless of case)                                                                    | 201                                                                                                |
+| `GET /specification-definitions`                     |                                                                                                       | 200 list                                                                                           |
+| `POST /specification-definitions`                    | `code`, `displayName`, `valueType` (`NUMERIC`/`TEXT`), `canonicalUnit`                                | 201                                                                                                |
+| `GET /specification-sources`                         |                                                                                                       | 200 list                                                                                           |
+| `POST /specification-sources`                        | `sourceType`, `sourceName`, `referenceUrl?`, `documentName?`, `retrievedAt?` (`YYYY-MM-DD`), `notes?` | 201                                                                                                |
+| `GET /equipment-models?limit=&offset=`               |                                                                                                       | 200 `{ items, limit, offset, total }`                                                              |
+| `GET /equipment-models/:id`                          |                                                                                                       | 200 model with `specifications`                                                                    |
+| `POST /equipment-models`                             | `manufacturerId`, `categoryId`, `modelName`, `modelCode?`, `status?`                                  | 201                                                                                                |
+| `POST /equipment-models/:id/specifications`          | `definitionCode` plus one value shape (below), `verificationStatus?`, `sourceId?`                     | 201 specification with `normalizedMin/normalizedMax`, `verificationStatus`, `verifiedAt`, `source` |
+| `PATCH /equipment-models/:id/specifications/:specId` | any of the value or verification fields; `null` clears one, omitted keeps it                          | 200                                                                                                |
 
 - **Value shapes.** A specification is exactly one of: a single value (`numericValue` + `unit`), a range (`minValue` + `maxValue` + `unit`), text (`textValue`, for `TEXT` definitions), or nothing (value unknown). Mixed or incomplete shapes return 400 `invalid_specification_shape`; negative or non-finite numbers 400 `invalid_specification_value`; `minValue > maxValue` 400 `invalid_specification_range`.
 - **Units.** `kg`/`t` (mass), `mm`/`m` (length), `kW`/`hp` (power, 1 hp = 745.7 W), `m3` (volume). A `NUMERIC` definition has a fixed `canonicalUnit`; values can be sent in any unit of the same dimension and are also stored converted to the canonical unit in `normalizedMin`/`normalizedMax` (rounded to 9 decimals), so `6720 mm` on a metre definition gives `6.72`. Other dimensions return 400 `incompatible_unit`. The canonical unit cannot be changed once set.
+- **Sources.** Every value can cite where it came from: `sourceType` is one of `MANUFACTURER`, `LICENSED_DATASET`, `APPROVED_PUBLIC_SOURCE`, `INTERNAL_VERIFICATION`, `TEST_FIXTURE`. A source that is still cited cannot be deleted. Unknown `sourceId` returns 404 `source_not_found`.
+- **Verification status.** `VERIFIED`, `REVIEW_REQUIRED`, `UNKNOWN` or `DEPRECATED`. When omitted it defaults to `REVIEW_REQUIRED` for a value and `UNKNOWN` for an empty one. Rules (400 on violation):
+  - an empty value is always `UNKNOWN`, and `UNKNOWN` always has an empty value (`invalid_verification_status`);
+  - `VERIFIED` needs a source (`verification_source_required`) that is not a `TEST_FIXTURE` (`test_fixture_not_verifiable`).
+- **`verifiedAt`** is set when a value becomes `VERIFIED` (and refreshed when `VERIFIED` is sent again) and cleared when it leaves `VERIFIED`. On PATCH, changing the value without sending `verificationStatus` resets the status to its default, so an edited value needs re-verifying; changing only the source keeps the status but re-checks the rules.
 - **Paging.** `limit` defaults to 50 and may be 1–200; `offset` defaults to 0. Models are sorted by manufacturer, then model name.
 - **Errors.** 404 `*_not_found` for unknown ids or `definitionCode`; 409 `category_exists`, `manufacturer_exists`, `definition_exists`, `model_exists` (same name for the same manufacturer, regardless of case) and `specification_exists` (one value per definition per model).
 - The same rules are enforced by `CHECK` constraints and unique indexes in the database.
 
-`pnpm --filter @ee/api db:seed` loads reference data (6 categories, 8 manufacturers, 10 definitions, 15 models). It only adds what is missing, so it is safe to run again. The specification values are illustrative round numbers, **not manufacturer data**.
+`pnpm --filter @ee/api db:seed` loads reference data (6 categories, 8 manufacturers, 10 definitions, 15 models). It only adds what is missing, so it is safe to run again. The specification values are illustrative round numbers, **not manufacturer data**: they cite a `TEST_FIXTURE` source ("Seed reference data") and are `REVIEW_REQUIRED`, so they can never be marked `VERIFIED`.
+
+Upgrading an existing database (migration `0004`) marks every existing value `REVIEW_REQUIRED` (or `UNKNOWN` when empty) with no source; running the seed afterwards attaches the fixture source to seeded values that have none.
 
 ## Client
 

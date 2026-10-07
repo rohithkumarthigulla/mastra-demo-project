@@ -9,6 +9,24 @@ export type SpecificationValueType = z.infer<typeof specificationValueTypeSchema
 export const equipmentModelStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 export type EquipmentModelStatus = z.infer<typeof equipmentModelStatusSchema>;
 
+export const specificationSourceTypeSchema = z.enum([
+  'MANUFACTURER',
+  'LICENSED_DATASET',
+  'APPROVED_PUBLIC_SOURCE',
+  'INTERNAL_VERIFICATION',
+  'TEST_FIXTURE',
+]);
+export type SpecificationSourceType = z.infer<typeof specificationSourceTypeSchema>;
+
+/** Only VERIFIED values are authoritative. */
+export const verificationStatusSchema = z.enum([
+  'VERIFIED',
+  'REVIEW_REQUIRED',
+  'UNKNOWN',
+  'DEPRECATED',
+]);
+export type VerificationStatus = z.infer<typeof verificationStatusSchema>;
+
 export const knowledgeCodeSchema = z
   .string()
   .trim()
@@ -61,16 +79,42 @@ const specificationValueFields = {
   textValue: z.string().trim().min(1).max(500).nullable().optional(),
 };
 
+/** When omitted, status defaults from the value: REVIEW_REQUIRED if set, UNKNOWN if empty. */
+const specificationVerificationFields = {
+  verificationStatus: verificationStatusSchema.optional(),
+  sourceId: z.uuid().nullable().optional(),
+};
+
+export const createSpecificationSourceRequestSchema = z.strictObject({
+  sourceType: specificationSourceTypeSchema,
+  sourceName: z.string().trim().min(1).max(200),
+  referenceUrl: z.url().max(2000).nullable().optional(),
+  documentName: z.string().trim().min(1).max(200).nullable().optional(),
+  retrievedAt: z.iso.date().nullable().optional(),
+  notes: z.string().trim().min(1).max(2000).nullable().optional(),
+});
+export type CreateSpecificationSourceRequest = z.infer<
+  typeof createSpecificationSourceRequestSchema
+>;
+
 export const createEquipmentSpecificationRequestSchema = z.strictObject({
   definitionCode: knowledgeCodeSchema,
   ...specificationValueFields,
+  ...specificationVerificationFields,
 });
 export type CreateEquipmentSpecificationRequest = z.infer<
   typeof createEquipmentSpecificationRequestSchema
 >;
 
-/** Provided keys replace the current value (null clears it); omitted keys are kept. */
-export const updateEquipmentSpecificationRequestSchema = z.strictObject(specificationValueFields);
+/**
+ * Provided keys replace the current value (null clears it); omitted keys are kept.
+ * If any value key is sent and verificationStatus is omitted, the status re-defaults
+ * from the new value, so a changed value must be verified again.
+ */
+export const updateEquipmentSpecificationRequestSchema = z.strictObject({
+  ...specificationValueFields,
+  ...specificationVerificationFields,
+});
 export type UpdateEquipmentSpecificationRequest = z.infer<
   typeof updateEquipmentSpecificationRequestSchema
 >;
@@ -111,6 +155,19 @@ export const specificationDefinitionSchema = z.object({
 });
 export type SpecificationDefinitionDto = z.infer<typeof specificationDefinitionSchema>;
 
+export const specificationSourceSchema = z.object({
+  id: z.uuid(),
+  sourceType: specificationSourceTypeSchema,
+  sourceName: z.string(),
+  referenceUrl: z.string().nullable(),
+  documentName: z.string().nullable(),
+  retrievedAt: z.iso.date().nullable(),
+  notes: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type SpecificationSourceDto = z.infer<typeof specificationSourceSchema>;
+
 export const equipmentSpecificationSchema = z.object({
   id: z.uuid(),
   modelId: z.uuid(),
@@ -123,6 +180,16 @@ export const equipmentSpecificationSchema = z.object({
   /** Value(s) converted to the definition's canonical unit; equal for a single value. */
   normalizedMin: z.number().nullable(),
   normalizedMax: z.number().nullable(),
+  verificationStatus: verificationStatusSchema,
+  verifiedAt: z.iso.datetime().nullable(),
+  source: z
+    .object({
+      id: z.uuid(),
+      sourceType: specificationSourceTypeSchema,
+      sourceName: z.string(),
+      referenceUrl: z.string().nullable(),
+    })
+    .nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

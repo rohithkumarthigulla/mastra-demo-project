@@ -17,6 +17,7 @@ import {
   EquipmentModelsController,
   ManufacturersController,
   SpecificationDefinitionsController,
+  SpecificationSourcesController,
 } from '.';
 
 const env = parseEnv({
@@ -43,6 +44,7 @@ async function createApp() {
       EquipmentCategoriesController,
       ManufacturersController,
       SpecificationDefinitionsController,
+      SpecificationSourcesController,
       EquipmentModelsController,
     ],
     providers: [
@@ -193,6 +195,7 @@ describe('equipment knowledge (integration)', () => {
       ['POST', '/equipment-categories'],
       ['POST', '/manufacturers'],
       ['POST', '/specification-definitions'],
+      ['POST', '/specification-sources'],
       ['POST', '/equipment-models'],
       ['POST', `/equipment-models/${model.id}/specifications`],
       ['PATCH', `/equipment-models/${model.id}/specifications/${spec.id}`],
@@ -210,6 +213,7 @@ describe('equipment knowledge (integration)', () => {
       '/equipment-categories',
       '/manufacturers',
       '/specification-definitions',
+      '/specification-sources',
       '/equipment-models',
       `/equipment-models/${model.id}`,
     ]) {
@@ -356,5 +360,182 @@ describe('equipment knowledge (integration)', () => {
 
     assert.equal((await http.request('GET', '/equipment-models?limit=201')).statusCode, 400);
     assert.equal((await http.request('GET', '/equipment-models?offset=-1')).statusCode, 400);
+  });
+
+  it('creates and lists specification sources', async () => {
+    const http = await createApp();
+    const fixture = await http.adminPost('/specification-sources', {
+      sourceType: 'TEST_FIXTURE',
+      sourceName: 'Seed data',
+    });
+    assert.equal(fixture.referenceUrl, null);
+    assert.equal(fixture.retrievedAt, null);
+    const brochure = await http.adminPost('/specification-sources', {
+      sourceType: 'MANUFACTURER',
+      sourceName: 'JS220 brochure',
+      referenceUrl: 'https://example.com/js220.pdf',
+      documentName: 'JS220 spec sheet',
+      retrievedAt: '2026-01-01',
+      notes: 'Page 4',
+    });
+    assert.equal(brochure.retrievedAt, '2026-01-01');
+
+    const list = (await http.request('GET', '/specification-sources')).json();
+    assert.deepEqual(
+      list.map((s: { id: string }) => s.id),
+      [brochure.id, fixture.id],
+    );
+
+    for (const body of [
+      { sourceType: 'BLOG', sourceName: 'x' },
+      { sourceType: 'MANUFACTURER', sourceName: ' ' },
+      { sourceType: 'MANUFACTURER', sourceName: 'x', retrievedAt: 'yesterday' },
+      { sourceType: 'MANUFACTURER', sourceName: 'x', extra: true },
+    ]) {
+      const res = await http.request('POST', '/specification-sources', http.admin, body);
+      assert.equal(res.statusCode, 400, JSON.stringify(body));
+    }
+  });
+
+  it('defaults verification status and returns the source on the model', async () => {
+    const http = await createApp();
+    const { model } = await http.fixture();
+    const base = `/equipment-models/${model.id}/specifications`;
+    const source = await http.adminPost('/specification-sources', {
+      sourceType: 'MANUFACTURER',
+      sourceName: 'JS220 brochure',
+      referenceUrl: 'https://example.com/js220.pdf',
+    });
+
+    const depth = await http.adminPost(base, {
+      definitionCode: 'MAX_DIGGING_DEPTH',
+      numericValue: 6720,
+      unit: 'mm',
+      sourceId: source.id,
+    });
+    assert.equal(depth.verificationStatus, 'REVIEW_REQUIRED');
+    assert.equal(depth.verifiedAt, null);
+    const empty = await http.adminPost(base, { definitionCode: 'ENGINE_MODEL' });
+    assert.equal(empty.verificationStatus, 'UNKNOWN');
+    assert.equal(empty.source, null);
+
+    const detail = (await http.request('GET', `/equipment-models/${model.id}`)).json();
+    const [engine, digging] = detail.specifications;
+    assert.equal(engine.verificationStatus, 'UNKNOWN');
+    assert.equal(digging.verificationStatus, 'REVIEW_REQUIRED');
+    assert.deepEqual(digging.source, {
+      id: source.id,
+      sourceType: 'MANUFACTURER',
+      sourceName: 'JS220 brochure',
+      referenceUrl: 'https://example.com/js220.pdf',
+    });
+  });
+
+  it('enforces the verification rules with 400s', async () => {
+    const http = await createApp();
+    const { model } = await http.fixture();
+    const base = `/equipment-models/${model.id}/specifications`;
+    const fixture = await http.adminPost('/specification-sources', {
+      sourceType: 'TEST_FIXTURE',
+      sourceName: 'Seed data',
+    });
+    const value = { definitionCode: 'MAX_DIGGING_DEPTH', numericValue: 6, unit: 'm' };
+    const cases: [object, string][] = [
+      [{ ...value, verificationStatus: 'VERIFIED' }, 'verification_source_required'],
+      [
+        { ...value, verificationStatus: 'VERIFIED', sourceId: fixture.id },
+        'test_fixture_not_verifiable',
+      ],
+      [{ ...value, verificationStatus: 'UNKNOWN' }, 'invalid_verification_status'],
+      [
+        { definitionCode: 'ENGINE_MODEL', verificationStatus: 'REVIEW_REQUIRED' },
+        'invalid_verification_status',
+      ],
+      [
+        { definitionCode: 'ENGINE_MODEL', verificationStatus: 'DEPRECATED' },
+        'invalid_verification_status',
+      ],
+    ];
+    for (const [body, code] of cases) {
+      const res = await http.request('POST', base, http.admin, body);
+      assert.equal(res.statusCode, 400, JSON.stringify(body));
+      assert.equal(res.json().code, code, JSON.stringify(body));
+    }
+
+    const bad = await http.request('POST', base, http.admin, {
+      ...value,
+      verificationStatus: 'MAYBE',
+    });
+    assert.equal(bad.statusCode, 400);
+    const missing = await http.request('POST', base, http.admin, {
+      ...value,
+      sourceId: '00000000-0000-4000-8000-000000000099',
+    });
+    assert.equal(missing.statusCode, 404);
+    assert.equal(missing.json().code, 'source_not_found');
+
+    const fixtureValue = await http.adminPost(base, { ...value, sourceId: fixture.id });
+    const promote = await http.request('PATCH', `${base}/${fixtureValue.id}`, http.admin, {
+      verificationStatus: 'VERIFIED',
+    });
+    assert.equal(promote.statusCode, 400);
+    assert.equal(promote.json().code, 'test_fixture_not_verifiable');
+  });
+
+  it('manages verifiedAt through PATCH', async () => {
+    const http = await createApp();
+    const { model } = await http.fixture();
+    const base = `/equipment-models/${model.id}/specifications`;
+    const source = await http.adminPost('/specification-sources', {
+      sourceType: 'MANUFACTURER',
+      sourceName: 'JS220 brochure',
+    });
+    const fixture = await http.adminPost('/specification-sources', {
+      sourceType: 'TEST_FIXTURE',
+      sourceName: 'Seed data',
+    });
+    const spec = await http.adminPost(base, {
+      definitionCode: 'MAX_DIGGING_DEPTH',
+      numericValue: 6720,
+      unit: 'mm',
+      sourceId: source.id,
+    });
+    const url = `${base}/${spec.id}`;
+    const patch = async (body: object) => {
+      const res = await http.request('PATCH', url, http.admin, body);
+      assert.equal(res.statusCode, 200, `${JSON.stringify(body)}: ${res.body}`);
+      return res.json();
+    };
+
+    http.advance(1000);
+    const verified = await patch({ verificationStatus: 'VERIFIED' });
+    assert.equal(verified.verificationStatus, 'VERIFIED');
+    assert.equal(verified.verifiedAt, '2026-01-01T00:00:01.000Z');
+
+    http.advance(1000);
+    const unchanged = await patch({ numericValue: 6720 });
+    assert.equal(unchanged.verificationStatus, 'VERIFIED');
+    assert.equal(unchanged.verifiedAt, '2026-01-01T00:00:01.000Z');
+
+    const reverified = await patch({ verificationStatus: 'VERIFIED' });
+    assert.equal(reverified.verifiedAt, '2026-01-01T00:00:02.000Z');
+
+    const toFixture = await http.request('PATCH', url, http.admin, { sourceId: fixture.id });
+    assert.equal(toFixture.json().code, 'test_fixture_not_verifiable');
+    const unsourced = await http.request('PATCH', url, http.admin, { sourceId: null });
+    assert.equal(unsourced.json().code, 'verification_source_required');
+
+    const changed = await patch({ numericValue: 7000 });
+    assert.equal(changed.verificationStatus, 'REVIEW_REQUIRED');
+    assert.equal(changed.verifiedAt, null);
+    assert.equal(changed.source.id, source.id);
+
+    await patch({ verificationStatus: 'VERIFIED' });
+    const deprecated = await patch({ verificationStatus: 'DEPRECATED' });
+    assert.equal(deprecated.verifiedAt, null);
+
+    const cleared = await patch({ numericValue: null, unit: null, sourceId: null });
+    assert.equal(cleared.verificationStatus, 'UNKNOWN');
+    assert.equal(cleared.source, null);
   });
 });

@@ -6,6 +6,7 @@ import {
   EquipmentModelsController,
   ManufacturersController,
   SpecificationDefinitionsController,
+  SpecificationSourcesController,
 } from './http';
 import { DrizzleEquipmentKnowledgeRepository } from './infrastructure';
 
@@ -14,6 +15,7 @@ import { DrizzleEquipmentKnowledgeRepository } from './infrastructure';
     EquipmentCategoriesController,
     ManufacturersController,
     SpecificationDefinitionsController,
+    SpecificationSourcesController,
     EquipmentModelsController,
   ],
   providers: [
