@@ -13,6 +13,8 @@ import { EquipmentKnowledgeService } from '../application';
 import { EQUIPMENT_KNOWLEDGE_REPOSITORY } from '../domain';
 import { InMemoryEquipmentKnowledgeRepository } from '../testing/in-memory-equipment-knowledge.repository';
 import {
+  CapabilitiesController,
+  ConstructionTasksController,
   EquipmentCategoriesController,
   EquipmentModelsController,
   ManufacturersController,
@@ -46,6 +48,8 @@ async function createApp() {
       SpecificationDefinitionsController,
       SpecificationSourcesController,
       EquipmentModelsController,
+      CapabilitiesController,
+      ConstructionTasksController,
     ],
     providers: [
       EquipmentKnowledgeService,
@@ -537,5 +541,457 @@ describe('equipment knowledge (integration)', () => {
     const cleared = await patch({ numericValue: null, unit: null, sourceId: null });
     assert.equal(cleared.verificationStatus, 'UNKNOWN');
     assert.equal(cleared.source, null);
+  });
+});
+
+describe('equipment model search (integration)', () => {
+  /**
+   * Excavators: JS220 (6.72 m, 22 t, depth VERIFIED), JS130/JS130LC (4.5 m, 20 t),
+   * 320 (4–6 m range, 30 t), 323 (depth UNKNOWN, 24 t), JS300 (7 m, 24 t, INACTIVE).
+   * Loader: 3CX (6 m, 8 t).
+   */
+  async function searchApp() {
+    const http = await createApp();
+    const { manufacturer: jcb, category: excavator, model: js220 } = await http.fixture();
+    const cat = await http.adminPost('/manufacturers', { name: 'Caterpillar' });
+    const loader = await http.adminPost('/equipment-categories', {
+      code: 'BACKHOE_LOADER',
+      displayName: 'Backhoe loader',
+    });
+    await http.adminPost('/specification-definitions', {
+      code: 'OPERATING_WEIGHT',
+      displayName: 'Operating weight',
+      valueType: 'NUMERIC',
+      canonicalUnit: 't',
+    });
+    const source = await http.adminPost('/specification-sources', {
+      sourceType: 'MANUFACTURER',
+      sourceName: 'JCB brochure',
+    });
+
+    const model = (manufacturerId: string, categoryId: string, extra: object) =>
+      http.adminPost('/equipment-models', { manufacturerId, categoryId, ...extra });
+    const spec = (modelId: string, payload: object) =>
+      http.adminPost(`/equipment-models/${modelId}/specifications`, payload);
+    const depth = (modelId: string, payload: object) =>
+      spec(modelId, { definitionCode: 'MAX_DIGGING_DEPTH', ...payload });
+    const weight = (modelId: string, tonnes: number) =>
+      spec(modelId, { definitionCode: 'OPERATING_WEIGHT', numericValue: tonnes, unit: 't' });
+
+    await depth(js220.id, {
+      numericValue: 6720,
+      unit: 'mm',
+      verificationStatus: 'VERIFIED',
+      sourceId: source.id,
+    });
+    await weight(js220.id, 22);
+
+    const js130 = await model(jcb.id, excavator.id, { modelName: 'JS130', modelCode: 'JS130LC' });
+    await depth(js130.id, { numericValue: 4.5, unit: 'm' });
+    await weight(js130.id, 20);
+
+    const c320 = await model(cat.id, excavator.id, { modelName: '320', modelCode: '320 GC' });
+    await depth(c320.id, { minValue: 4, maxValue: 6, unit: 'm' });
+    await weight(c320.id, 30);
+
+    const c323 = await model(cat.id, excavator.id, { modelName: '323' });
+    await depth(c323.id, {});
+    await weight(c323.id, 24);
+
+    const js300 = await model(jcb.id, excavator.id, { modelName: 'JS300', status: 'INACTIVE' });
+    await depth(js300.id, { numericValue: 7, unit: 'm' });
+    await weight(js300.id, 24);
+
+    const cx3 = await model(jcb.id, loader.id, { modelName: '3CX' });
+    await depth(cx3.id, { numericValue: 6, unit: 'm' });
+    await weight(cx3.id, 8);
+
+    const search = async (query: string) => {
+      const res = await http.request('GET', `/equipment-models?${query}`);
+      assert.equal(res.statusCode, 200, res.body);
+      const body = res.json();
+      return {
+        names: body.items.map((m: { modelName: string }) => m.modelName) as string[],
+        total: body.total as number,
+      };
+    };
+    return { http, search };
+  }
+
+  it('answers the example query: excavators digging at least 5 m and weighing at most 25 t', async () => {
+    const { search } = await searchApp();
+    const result = await search(
+      'category=EXCAVATOR&spec=MAX_DIGGING_DEPTH:min:5:m&spec=OPERATING_WEIGHT:max:25:t',
+    );
+    assert.deepEqual(result, { names: ['JS220'], total: 1 });
+
+    const inactive = await search(
+      'category=EXCAVATOR&spec=MAX_DIGGING_DEPTH:min:5:m&spec=OPERATING_WEIGHT:max:25:t&status=INACTIVE',
+    );
+    assert.deepEqual(inactive.names, ['JS300']);
+  });
+
+  it('normalizes the filter unit, matches any part of a range and never matches UNKNOWN', async () => {
+    const { search } = await searchApp();
+    const inMetres = await search('spec=MAX_DIGGING_DEPTH:min:5:m');
+    const inMillimetres = await search('spec=MAX_DIGGING_DEPTH:min:5000:mm');
+    assert.deepEqual(inMetres.names, ['320', '3CX', 'JS220']);
+    assert.deepEqual(inMillimetres, inMetres);
+
+    assert.deepEqual((await search('spec=MAX_DIGGING_DEPTH:max:4500:mm')).names, ['320', 'JS130']);
+    assert.deepEqual((await search('spec=OPERATING_WEIGHT:max:24000:kg')).names, [
+      '323',
+      '3CX',
+      'JS130',
+      'JS220',
+    ]);
+    const anyDepth = await search('spec=MAX_DIGGING_DEPTH:min:0:m');
+    assert.ok(!anyDepth.names.includes('323'));
+  });
+
+  it('filters by category, manufacturer, model text and verification status', async () => {
+    const { search } = await searchApp();
+    assert.deepEqual(await search('category=BACKHOE_LOADER'), { names: ['3CX'], total: 1 });
+    assert.deepEqual(await search('category=CRANE'), { names: [], total: 0 });
+    assert.deepEqual((await search('manufacturer=caterpillar')).names, ['320', '323']);
+    assert.deepEqual((await search('manufacturer=cat')).names, []);
+    assert.deepEqual((await search('model=lc')).names, ['JS130']);
+    assert.deepEqual((await search('model=32')).names, ['320', '323']);
+    assert.deepEqual((await search('model=%25')).names, []);
+    assert.deepEqual(
+      (await search('spec=MAX_DIGGING_DEPTH:min:5:m&verificationStatus=VERIFIED')).names,
+      ['JS220'],
+    );
+    assert.deepEqual(
+      (await search('spec=MAX_DIGGING_DEPTH:min:5:m&verificationStatus=REVIEW_REQUIRED')).names,
+      ['320', '3CX'],
+    );
+  });
+
+  it('counts the total across pages of filtered results', async () => {
+    const { search } = await searchApp();
+    const page = await search('category=EXCAVATOR&limit=2&offset=1');
+    assert.deepEqual(page, { names: ['323', 'JS130'], total: 4 });
+  });
+
+  it('rejects unknown codes, cross-dimension units and malformed filters with 400', async () => {
+    const { http } = await searchApp();
+    const code = async (query: string) => {
+      const res = await http.request('GET', `/equipment-models?${query}`);
+      assert.equal(res.statusCode, 400, query);
+      return res.json().code;
+    };
+    assert.equal(await code('spec=BUCKET_SIZE:min:1:m3'), 'unknown_specification_code');
+    assert.equal(await code('spec=MAX_DIGGING_DEPTH:min:5:kg'), 'incompatible_unit');
+    assert.equal(await code('spec=ENGINE_MODEL:min:5:m'), 'non_numeric_specification');
+    assert.equal(await code('spec=MAX_DIGGING_DEPTH:atleast:5:m'), 'validation_failed');
+    assert.equal(await code('spec=MAX_DIGGING_DEPTH:min:5:ft'), 'validation_failed');
+    assert.equal(await code('status=ARCHIVED'), 'validation_failed');
+    assert.equal(await code('verificationStatus=MAYBE'), 'validation_failed');
+    assert.equal(await code('limit=201'), 'validation_failed');
+  });
+});
+
+describe('equipment taxonomy (integration)', () => {
+  /** The base fixture plus a crane category, a second model, two capabilities and a task. */
+  const taxonomyApp = async () => {
+    const http = await createApp();
+    const { manufacturer, category, model } = await http.fixture();
+    const crane = await http.adminPost('/equipment-categories', {
+      code: 'CRANE',
+      displayName: 'Crane',
+    });
+    const other = await http.adminPost('/equipment-models', {
+      manufacturerId: manufacturer.id,
+      categoryId: category.id,
+      modelName: 'JS130',
+    });
+    await http.adminPost('/capabilities', { code: 'DEEP_EXCAVATION', displayName: 'Deep' });
+    await http.adminPost('/capabilities', { code: 'LIFTING', displayName: 'Lifting' });
+    const task = await http.adminPost('/construction-tasks', {
+      code: 'FOUNDATION_EXCAVATION',
+      displayName: 'Foundation excavation',
+    });
+    const manufacturerSource = await http.adminPost('/specification-sources', {
+      sourceType: 'MANUFACTURER',
+      sourceName: 'JCB brochure',
+    });
+    const fixtureSource = await http.adminPost('/specification-sources', {
+      sourceType: 'TEST_FIXTURE',
+      sourceName: 'Fixture',
+    });
+    return { ...http, category, crane, model, other, task, manufacturerSource, fixtureSource };
+  };
+
+  it('lets an ADMIN create and read capabilities and construction tasks', async () => {
+    const http = await taxonomyApp();
+
+    const list = (await http.request('GET', '/capabilities')).json();
+    assert.deepEqual(
+      list.map((c: { code: string }) => c.code),
+      ['DEEP_EXCAVATION', 'LIFTING'],
+    );
+    const one = await http.request('GET', '/capabilities/LIFTING');
+    assert.equal(one.statusCode, 200);
+    assert.equal(one.json().displayName, 'Lifting');
+    assert.equal((await http.request('GET', '/capabilities/NOPE')).statusCode, 404);
+    assert.equal((await http.request('GET', '/capabilities/not-a-code')).statusCode, 400);
+
+    const tasks = (await http.request('GET', '/construction-tasks')).json();
+    assert.deepEqual(
+      tasks.map((t: { code: string }) => t.code),
+      ['FOUNDATION_EXCAVATION'],
+    );
+    const task = await http.request('GET', `/construction-tasks/${http.task.id}`);
+    assert.equal(task.json().code, 'FOUNDATION_EXCAVATION');
+    assert.equal(
+      (await http.request('GET', '/construction-tasks/00000000-0000-4000-8000-000000000009'))
+        .statusCode,
+      404,
+    );
+  });
+
+  it('keeps every write ADMIN only', async () => {
+    const http = await taxonomyApp();
+    const supplier = http.tokenFor('SUPPLIER');
+    const writes: [string, object][] = [
+      ['/capabilities', { code: 'TRENCHING', displayName: 'Trenching' }],
+      ['/construction-tasks', { code: 'TRENCH_DIGGING', displayName: 'Trench digging' }],
+      [
+        `/construction-tasks/${http.task.id}/capabilities`,
+        { capabilityCode: 'LIFTING', importance: 'OPTIONAL' },
+      ],
+      [
+        `/construction-tasks/${http.task.id}/equipment-categories`,
+        { categoryCode: 'CRANE', suitability: 'SECONDARY' },
+      ],
+      [`/equipment-models/${http.model.id}/capabilities`, { capabilityCode: 'LIFTING' }],
+      [`/equipment-categories/${http.category.id}/capabilities`, { capabilityCode: 'LIFTING' }],
+    ];
+    for (const [url, payload] of writes) {
+      assert.equal((await http.request('POST', url, undefined, payload)).statusCode, 401, url);
+      assert.equal((await http.request('POST', url, supplier, payload)).statusCode, 403, url);
+      assert.equal((await http.request('POST', url, http.admin, payload)).statusCode, 201, url);
+    }
+  });
+
+  it('returns 409 for duplicate codes and duplicate pairs of every link kind', async () => {
+    const http = await taxonomyApp();
+    const duplicates: [string, object][] = [
+      ['/capabilities', { code: 'LIFTING', displayName: 'Again' }],
+      ['/construction-tasks', { code: 'FOUNDATION_EXCAVATION', displayName: 'Again' }],
+    ];
+    const links: [string, object, object][] = [
+      [
+        `/construction-tasks/${http.task.id}/capabilities`,
+        { capabilityCode: 'DEEP_EXCAVATION', importance: 'REQUIRED' },
+        { capabilityCode: 'DEEP_EXCAVATION', importance: 'OPTIONAL' },
+      ],
+      [
+        `/construction-tasks/${http.task.id}/equipment-categories`,
+        { categoryCode: 'EXCAVATOR', suitability: 'PRIMARY' },
+        { categoryCode: 'EXCAVATOR', suitability: 'SECONDARY' },
+      ],
+      [
+        `/equipment-models/${http.model.id}/capabilities`,
+        { capabilityCode: 'DEEP_EXCAVATION' },
+        { capabilityCode: 'DEEP_EXCAVATION', verificationStatus: 'REVIEW_REQUIRED' },
+      ],
+      [
+        `/equipment-categories/${http.category.id}/capabilities`,
+        { capabilityCode: 'DEEP_EXCAVATION' },
+        { capabilityCode: 'DEEP_EXCAVATION' },
+      ],
+    ];
+    for (const [url, first, second] of links) {
+      await http.adminPost(url, first);
+      duplicates.push([url, second]);
+    }
+    for (const [url, payload] of duplicates) {
+      const res = await http.request('POST', url, http.admin, payload);
+      assert.equal(res.statusCode, 409, url);
+    }
+  });
+
+  it('returns 404 for links to missing tasks, models, categories or capabilities', async () => {
+    const http = await taxonomyApp();
+    const missing = '00000000-0000-4000-8000-000000000009';
+    const cases: [string, object][] = [
+      [
+        `/construction-tasks/${missing}/capabilities`,
+        { capabilityCode: 'LIFTING', importance: 'REQUIRED' },
+      ],
+      [
+        `/construction-tasks/${http.task.id}/capabilities`,
+        { capabilityCode: 'NOPE', importance: 'REQUIRED' },
+      ],
+      [
+        `/construction-tasks/${http.task.id}/equipment-categories`,
+        { categoryCode: 'NOPE', suitability: 'PRIMARY' },
+      ],
+      [`/equipment-models/${missing}/capabilities`, { capabilityCode: 'LIFTING' }],
+      [`/equipment-categories/${missing}/capabilities`, { capabilityCode: 'LIFTING' }],
+    ];
+    for (const [url, payload] of cases) {
+      assert.equal((await http.request('POST', url, http.admin, payload)).statusCode, 404, url);
+    }
+    const bad = await http.request(
+      'POST',
+      `/construction-tasks/${http.task.id}/capabilities`,
+      http.admin,
+      { capabilityCode: 'LIFTING', importance: 'NICE_TO_HAVE' },
+    );
+    assert.equal(bad.statusCode, 400);
+  });
+
+  it('lists only direct model links for a capability, never via the category', async () => {
+    const http = await taxonomyApp();
+    await http.adminPost(`/equipment-categories/${http.category.id}/capabilities`, {
+      capabilityCode: 'DEEP_EXCAVATION',
+    });
+    await http.adminPost(`/equipment-models/${http.model.id}/capabilities`, {
+      capabilityCode: 'DEEP_EXCAVATION',
+      verificationStatus: 'VERIFIED',
+      sourceId: http.manufacturerSource.id,
+    });
+
+    const models = (
+      await http.request('GET', '/capabilities/DEEP_EXCAVATION/equipment-models')
+    ).json();
+    assert.deepEqual(
+      models.map((m: { model: { modelName: string } }) => m.model.modelName),
+      ['JS220'],
+    );
+    assert.equal(models[0].verificationStatus, 'VERIFIED');
+    assert.equal(models[0].verifiedAt, '2026-01-01T00:00:00.000Z');
+    assert.equal(models[0].source.sourceName, 'JCB brochure');
+
+    const otherCaps = (
+      await http.request('GET', `/equipment-models/${http.other.id}/capabilities`)
+    ).json();
+    assert.deepEqual(otherCaps, []);
+    const categoryCaps = (
+      await http.request('GET', `/equipment-categories/${http.category.id}/capabilities`)
+    ).json();
+    assert.deepEqual(
+      categoryCaps.map((c: { capability: { code: string } }) => c.capability.code),
+      ['DEEP_EXCAVATION'],
+    );
+    assert.equal(categoryCaps[0].verificationStatus, 'REVIEW_REQUIRED');
+    assert.equal(categoryCaps[0].source, null);
+
+    const detail = (await http.request('GET', `/equipment-models/${http.model.id}`)).json();
+    assert.deepEqual(
+      detail.capabilities.map((c: { capability: { code: string } }) => c.capability.code),
+      ['DEEP_EXCAVATION'],
+    );
+    assert.equal(
+      (await http.request('GET', '/capabilities/LIFTING/equipment-models')).json().length,
+      0,
+    );
+  });
+
+  it('enforces link provenance: VERIFIED needs a real source, never a TEST_FIXTURE', async () => {
+    const http = await taxonomyApp();
+    const code = async (url: string, payload: object) => {
+      const res = await http.request('POST', url, http.admin, payload);
+      assert.equal(res.statusCode, 400, res.body);
+      return res.json().code;
+    };
+    for (const url of [
+      `/equipment-models/${http.model.id}/capabilities`,
+      `/equipment-categories/${http.category.id}/capabilities`,
+    ]) {
+      assert.equal(
+        await code(url, {
+          capabilityCode: 'LIFTING',
+          verificationStatus: 'VERIFIED',
+          sourceId: http.fixtureSource.id,
+        }),
+        'test_fixture_not_verifiable',
+      );
+      assert.equal(
+        await code(url, { capabilityCode: 'LIFTING', verificationStatus: 'VERIFIED' }),
+        'verification_source_required',
+      );
+      assert.equal(
+        await code(url, { capabilityCode: 'LIFTING', verificationStatus: 'UNKNOWN' }),
+        'validation_failed',
+      );
+      const link = await http.adminPost(url, {
+        capabilityCode: 'LIFTING',
+        sourceId: http.fixtureSource.id,
+      });
+      assert.equal(link.verificationStatus, 'REVIEW_REQUIRED');
+      assert.equal(link.source.sourceType, 'TEST_FIXTURE');
+    }
+  });
+
+  it('links tasks to capabilities and categories and reads them from both sides', async () => {
+    const http = await taxonomyApp();
+    const trench = await http.adminPost('/construction-tasks', {
+      code: 'TRENCH_DIGGING',
+      displayName: 'Trench digging',
+    });
+    const add = (taskId: string, capabilityCode: string, importance: string) =>
+      http.adminPost(`/construction-tasks/${taskId}/capabilities`, { capabilityCode, importance });
+    const added = await add(http.task.id, 'DEEP_EXCAVATION', 'REQUIRED');
+    assert.equal(added.capability.code, 'DEEP_EXCAVATION');
+    assert.equal(added.importance, 'REQUIRED');
+    await add(http.task.id, 'LIFTING', 'PREFERRED');
+    await add(trench.id, 'DEEP_EXCAVATION', 'OPTIONAL');
+
+    const taskCaps = (
+      await http.request('GET', `/construction-tasks/${http.task.id}/capabilities`)
+    ).json();
+    assert.deepEqual(
+      taskCaps.map((c: { capability: { code: string }; importance: string }) => [
+        c.capability.code,
+        c.importance,
+      ]),
+      [
+        ['DEEP_EXCAVATION', 'REQUIRED'],
+        ['LIFTING', 'PREFERRED'],
+      ],
+    );
+    const tasksFor = async (query: string) =>
+      (await http.request('GET', `/capabilities/DEEP_EXCAVATION/construction-tasks${query}`))
+        .json()
+        .map((t: { task: { code: string } }) => t.task.code);
+    assert.deepEqual(await tasksFor(''), ['FOUNDATION_EXCAVATION', 'TRENCH_DIGGING']);
+    assert.deepEqual(await tasksFor('?importance=REQUIRED'), ['FOUNDATION_EXCAVATION']);
+    assert.deepEqual(await tasksFor('?importance=PREFERRED'), []);
+    assert.equal(
+      (await http.request('GET', '/capabilities/DEEP_EXCAVATION/construction-tasks?importance=X'))
+        .statusCode,
+      400,
+    );
+
+    const category = await http.adminPost(
+      `/construction-tasks/${http.task.id}/equipment-categories`,
+      { categoryCode: 'EXCAVATOR', suitability: 'PRIMARY' },
+    );
+    assert.equal(category.category.code, 'EXCAVATOR');
+    await http.adminPost(`/construction-tasks/${http.task.id}/equipment-categories`, {
+      categoryCode: 'CRANE',
+      suitability: 'SECONDARY',
+    });
+    const taskCategories = (
+      await http.request('GET', `/construction-tasks/${http.task.id}/equipment-categories`)
+    ).json();
+    assert.deepEqual(
+      taskCategories.map((c: { category: { code: string }; suitability: string }) => [
+        c.category.code,
+        c.suitability,
+      ]),
+      [
+        ['CRANE', 'SECONDARY'],
+        ['EXCAVATOR', 'PRIMARY'],
+      ],
+    );
+    const craneTasks = (
+      await http.request('GET', `/equipment-categories/${http.crane.id}/construction-tasks`)
+    ).json();
+    assert.deepEqual(craneTasks, [{ task: http.task, suitability: 'SECONDARY' }]);
   });
 });

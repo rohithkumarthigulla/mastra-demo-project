@@ -1,15 +1,21 @@
 import type {
+  CapabilityImportance,
   EquipmentModelStatus,
+  LinkVerificationStatus,
   SpecificationSourceType,
   SpecificationValueType,
+  TaskSuitability,
   Unit,
   VerificationStatus,
 } from '@ee/contracts';
 
 export type {
+  CapabilityImportance,
   EquipmentModelStatus,
+  LinkVerificationStatus,
   SpecificationSourceType,
   SpecificationValueType,
+  TaskSuitability,
   VerificationStatus,
 };
 
@@ -97,4 +103,62 @@ export interface EquipmentSpecification extends SpecificationValue, Specificatio
 
 export interface EquipmentModelDetail extends EquipmentModel {
   specifications: EquipmentSpecification[];
+  capabilities: CapabilityLink[];
+}
+
+/** What equipment can do, e.g. DEEP_EXCAVATION. Never carries a number. */
+export interface Capability {
+  id: string;
+  code: string;
+  displayName: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** A kind of construction work, e.g. FOUNDATION_EXCAVATION. */
+export interface ConstructionTask {
+  id: string;
+  code: string;
+  displayName: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LinkVerification {
+  verificationStatus: LinkVerificationStatus;
+  sourceId: string | null;
+  /** Set only while VERIFIED. */
+  verifiedAt: Date | null;
+}
+
+/** A capability recorded directly on one model or one category, with its provenance. */
+export interface CapabilityLink extends LinkVerification {
+  capability: Capability;
+  source: SpecificationSourceSummary | null;
+}
+
+/** A model linked directly to a capability. */
+export interface CapabilityModel extends LinkVerification {
+  model: EquipmentModel;
+  source: SpecificationSourceSummary | null;
+}
+
+export interface TaskCapability {
+  capability: Capability;
+  importance: CapabilityImportance;
+}
+
+export interface CapabilityTask {
+  task: ConstructionTask;
+  importance: CapabilityImportance;
+}
+
+export interface TaskCategory {
+  category: EquipmentCategory;
+  suitability: TaskSuitability;
+}
+
+export interface CategoryTask {
+  task: ConstructionTask;
+  suitability: TaskSuitability;
 }

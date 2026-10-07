@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { listEquipmentModelsQuerySchema } from '@ee/contracts';
 import { EquipmentKnowledgeService } from '../modules/equipment-knowledge/application';
 import { hasSpecificationValue } from '../modules/equipment-knowledge/domain';
 import { InMemoryEquipmentKnowledgeRepository } from '../modules/equipment-knowledge/testing/in-memory-equipment-knowledge.repository';
@@ -24,7 +25,9 @@ describe('seedEquipmentKnowledge', () => {
     const [source] = await service.listSources();
     assert.ok(source);
     assert.equal(source.sourceType, 'TEST_FIXTURE');
-    for (const model of (await service.listModels({ limit: 200, offset: 0 })).items) {
+    for (const model of (
+      await service.searchModels(listEquipmentModelsQuerySchema.parse({ limit: 200 }))
+    ).items) {
       for (const spec of (await service.getModel(model.id)).specifications) {
         assert.equal(
           spec.verificationStatus,
@@ -44,7 +47,7 @@ describe('seedEquipmentKnowledge', () => {
       models: 0,
       specifications: 0,
     });
-    const page = await service.listModels({ limit: 200, offset: 0 });
+    const page = await service.searchModels(listEquipmentModelsQuerySchema.parse({ limit: 200 }));
     assert.equal(page.total, first.models);
     assert.equal((await service.listSources()).length, 1);
   });
@@ -53,7 +56,8 @@ describe('seedEquipmentKnowledge', () => {
     const repo = new InMemoryEquipmentKnowledgeRepository();
     const service = new EquipmentKnowledgeService(repo, systemClock);
     await seedEquipmentKnowledge(service);
-    const [model] = (await service.listModels({ limit: 1, offset: 0 })).items;
+    const [model] = (await service.searchModels(listEquipmentModelsQuerySchema.parse({ limit: 1 })))
+      .items;
     assert.ok(model);
     const [spec] = (await service.getModel(model.id)).specifications;
     assert.ok(spec);

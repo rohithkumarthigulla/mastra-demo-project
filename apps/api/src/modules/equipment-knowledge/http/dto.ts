@@ -1,4 +1,10 @@
 import type {
+  CapabilityDto,
+  CapabilityLinkDto,
+  CapabilityModelDto,
+  CapabilityTaskDto,
+  CategoryTaskDto,
+  ConstructionTaskDto,
   EquipmentCategoryDto,
   EquipmentModelDetailDto,
   EquipmentModelDto,
@@ -6,10 +12,18 @@ import type {
   ManufacturerDto,
   SpecificationDefinitionDto,
   SpecificationSourceDto,
+  TaskCapabilityDto,
+  TaskCategoryDto,
 } from '@ee/contracts';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../../../platform/http';
 import type {
+  Capability,
+  CapabilityLink,
+  CapabilityModel,
+  CapabilityTask,
+  CategoryTask,
+  ConstructionTask,
   EquipmentCategory,
   EquipmentModel,
   EquipmentModelDetail,
@@ -17,6 +31,8 @@ import type {
   Manufacturer,
   SpecificationDefinition,
   SpecificationSource,
+  TaskCapability,
+  TaskCategory,
 } from '../domain';
 
 /** Rejects malformed ids with 400 before they reach Postgres's uuid parser. */
@@ -96,5 +112,52 @@ export function specificationToDto(row: EquipmentSpecification): EquipmentSpecif
 }
 
 export function modelDetailToDto(row: EquipmentModelDetail): EquipmentModelDetailDto {
-  return { ...modelToDto(row), specifications: row.specifications.map(specificationToDto) };
+  return {
+    ...modelToDto(row),
+    specifications: row.specifications.map(specificationToDto),
+    capabilities: row.capabilities.map(capabilityLinkToDto),
+  };
+}
+
+export function capabilityToDto(row: Capability): CapabilityDto {
+  return { id: row.id, code: row.code, displayName: row.displayName, ...timestamps(row) };
+}
+
+export function constructionTaskToDto(row: ConstructionTask): ConstructionTaskDto {
+  return { id: row.id, code: row.code, displayName: row.displayName, ...timestamps(row) };
+}
+
+const provenanceToDto = (row: CapabilityLink | CapabilityModel) => ({
+  verificationStatus: row.verificationStatus,
+  verifiedAt: row.verifiedAt?.toISOString() ?? null,
+  source: row.source && {
+    id: row.source.id,
+    sourceType: row.source.sourceType,
+    sourceName: row.source.sourceName,
+    referenceUrl: row.source.referenceUrl,
+  },
+});
+
+export function capabilityLinkToDto(row: CapabilityLink): CapabilityLinkDto {
+  return { capability: capabilityToDto(row.capability), ...provenanceToDto(row) };
+}
+
+export function capabilityModelToDto(row: CapabilityModel): CapabilityModelDto {
+  return { model: modelToDto(row.model), ...provenanceToDto(row) };
+}
+
+export function taskCapabilityToDto(row: TaskCapability): TaskCapabilityDto {
+  return { capability: capabilityToDto(row.capability), importance: row.importance };
+}
+
+export function capabilityTaskToDto(row: CapabilityTask): CapabilityTaskDto {
+  return { task: constructionTaskToDto(row.task), importance: row.importance };
+}
+
+export function taskCategoryToDto(row: TaskCategory): TaskCategoryDto {
+  return { category: categoryToDto(row.category), suitability: row.suitability };
+}
+
+export function categoryTaskToDto(row: CategoryTask): CategoryTaskDto {
+  return { task: constructionTaskToDto(row.task), suitability: row.suitability };
 }

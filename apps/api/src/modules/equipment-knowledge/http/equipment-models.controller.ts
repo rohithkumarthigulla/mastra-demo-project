@@ -1,9 +1,12 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
+  addCapabilityLinkRequestSchema,
   createEquipmentModelRequestSchema,
   createEquipmentSpecificationRequestSchema,
   listEquipmentModelsQuerySchema,
   updateEquipmentSpecificationRequestSchema,
+  type AddCapabilityLinkRequest,
+  type CapabilityLinkDto,
   type CreateEquipmentModelRequest,
   type CreateEquipmentSpecificationRequest,
   type EquipmentModelDetailDto,
@@ -16,7 +19,13 @@ import {
 import { AuthGuard, Roles, RolesGuard } from '../../../platform/auth';
 import { ZodValidationPipe } from '../../../platform/http';
 import { EquipmentKnowledgeService } from '../application';
-import { modelDetailToDto, modelToDto, specificationToDto, uuidPipe } from './dto';
+import {
+  capabilityLinkToDto,
+  modelDetailToDto,
+  modelToDto,
+  specificationToDto,
+  uuidPipe,
+} from './dto';
 
 @Controller('equipment-models')
 export class EquipmentModelsController {
@@ -26,7 +35,7 @@ export class EquipmentModelsController {
   async list(
     @Query(new ZodValidationPipe(listEquipmentModelsQuerySchema)) query: ListEquipmentModelsQuery,
   ): Promise<EquipmentModelPageDto> {
-    const page = await this.knowledge.listModels(query);
+    const page = await this.knowledge.searchModels(query);
     return {
       items: page.items.map(modelToDto),
       limit: query.limit,
@@ -71,5 +80,20 @@ export class EquipmentModelsController {
     body: UpdateEquipmentSpecificationRequest,
   ): Promise<EquipmentSpecificationDto> {
     return specificationToDto(await this.knowledge.updateSpecification(id, specificationId, body));
+  }
+
+  @Get(':id/capabilities')
+  async listCapabilities(@Param('id', uuidPipe) id: string): Promise<CapabilityLinkDto[]> {
+    return (await this.knowledge.listModelCapabilities(id)).map(capabilityLinkToDto);
+  }
+
+  @Post(':id/capabilities')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async addCapability(
+    @Param('id', uuidPipe) id: string,
+    @Body(new ZodValidationPipe(addCapabilityLinkRequestSchema)) body: AddCapabilityLinkRequest,
+  ): Promise<CapabilityLinkDto> {
+    return capabilityLinkToDto(await this.knowledge.addModelCapability(id, body));
   }
 }

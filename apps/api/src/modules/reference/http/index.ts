@@ -1,1 +1,1 @@
-export {};
+export { ReferenceController } from './reference.controller';

@@ -66,6 +66,18 @@ export class SpecificationNotFoundError extends NotFoundError {
   }
 }
 
+export class UnknownSpecificationCodeError extends DomainError {
+  constructor(code: string) {
+    super('unknown_specification_code', `Unknown specification code ${code}`);
+  }
+}
+
+export class NonNumericSpecificationError extends DomainError {
+  constructor(code: string) {
+    super('non_numeric_specification', `Specification ${code} has no numeric value to compare`);
+  }
+}
+
 export class IncompatibleUnitError extends DomainError {
   constructor(from: string, to: string) {
     super('incompatible_unit', `Unit ${from} cannot be converted to ${to}`);
@@ -105,5 +117,35 @@ export class VerificationSourceRequiredError extends DomainError {
 export class TestFixtureNotVerifiableError extends DomainError {
   constructor() {
     super('test_fixture_not_verifiable', 'A value from a TEST_FIXTURE source cannot be VERIFIED');
+  }
+}
+
+export class CapabilityExistsError extends ConflictError {
+  constructor() {
+    super('capability_exists', 'A capability with this code already exists');
+  }
+}
+
+export class ConstructionTaskExistsError extends ConflictError {
+  constructor() {
+    super('construction_task_exists', 'A construction task with this code already exists');
+  }
+}
+
+export class LinkExistsError extends ConflictError {
+  constructor() {
+    super('link_exists', 'This link already exists');
+  }
+}
+
+export class CapabilityNotFoundError extends NotFoundError {
+  constructor() {
+    super('capability_not_found', 'Capability not found');
+  }
+}
+
+export class ConstructionTaskNotFoundError extends NotFoundError {
+  constructor() {
+    super('construction_task_not_found', 'Construction task not found');
   }
 }

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { EquipmentKnowledgeService } from './application';
 import { EQUIPMENT_KNOWLEDGE_REPOSITORY } from './domain';
 import {
+  CapabilitiesController,
+  ConstructionTasksController,
   EquipmentCategoriesController,
   EquipmentModelsController,
   ManufacturersController,
@@ -17,6 +19,8 @@ import { DrizzleEquipmentKnowledgeRepository } from './infrastructure';
     SpecificationDefinitionsController,
     SpecificationSourcesController,
     EquipmentModelsController,
+    CapabilitiesController,
+    ConstructionTasksController,
   ],
   providers: [
     EquipmentKnowledgeService,

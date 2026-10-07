@@ -117,7 +117,7 @@ Reference data about kinds of plant (`apps/api/src/modules/equipment-knowledge`,
 | `POST /specification-definitions`                    | `code`, `displayName`, `valueType` (`NUMERIC`/`TEXT`), `canonicalUnit`                                | 201                                                                                                |
 | `GET /specification-sources`                         |                                                                                                       | 200 list                                                                                           |
 | `POST /specification-sources`                        | `sourceType`, `sourceName`, `referenceUrl?`, `documentName?`, `retrievedAt?` (`YYYY-MM-DD`), `notes?` | 201                                                                                                |
-| `GET /equipment-models?limit=&offset=`               |                                                                                                       | 200 `{ items, limit, offset, total }`                                                              |
+| `GET /equipment-models` (search, below)              |                                                                                                       | 200 `{ items, limit, offset, total }`                                                              |
 | `GET /equipment-models/:id`                          |                                                                                                       | 200 model with `specifications`                                                                    |
 | `POST /equipment-models`                             | `manufacturerId`, `categoryId`, `modelName`, `modelCode?`, `status?`                                  | 201                                                                                                |
 | `POST /equipment-models/:id/specifications`          | `definitionCode` plus one value shape (below), `verificationStatus?`, `sourceId?`                     | 201 specification with `normalizedMin/normalizedMax`, `verificationStatus`, `verifiedAt`, `source` |
@@ -131,12 +131,73 @@ Reference data about kinds of plant (`apps/api/src/modules/equipment-knowledge`,
   - `VERIFIED` needs a source (`verification_source_required`) that is not a `TEST_FIXTURE` (`test_fixture_not_verifiable`).
 - **`verifiedAt`** is set when a value becomes `VERIFIED` (and refreshed when `VERIFIED` is sent again) and cleared when it leaves `VERIFIED`. On PATCH, changing the value without sending `verificationStatus` resets the status to its default, so an edited value needs re-verifying; changing only the source keeps the status but re-checks the rules.
 - **Paging.** `limit` defaults to 50 and may be 1–200; `offset` defaults to 0. Models are sorted by manufacturer, then model name.
+- **Search.** `GET /equipment-models` takes filters that are combined with AND:
+  - `category` — category code, exact (an unknown code matches nothing);
+  - `manufacturer` — manufacturer name, exact regardless of case;
+  - `model` — text contained in the model name or model code, regardless of case;
+  - `spec=CODE:min|max:VALUE:UNIT` — repeatable (up to 10), e.g. `?category=EXCAVATOR&spec=MAX_DIGGING_DEPTH:min:5:m&spec=OPERATING_WEIGHT:max:25:t`. The value is converted to the definition's canonical unit first, so `:min:5000:mm` equals `:min:5:m`. A range matches when any part of it meets the bound (`4–6 m` matches `min:5:m` and `max:4.5:m`); an `UNKNOWN` (empty) value never matches. An unknown code returns 400 `unknown_specification_code`, a unit of another dimension 400 `incompatible_unit`, a `TEXT` definition 400 `non_numeric_specification`, a malformed filter 400 `validation_failed`;
+  - `verificationStatus` — only spec values with this status satisfy the `spec` filters (no effect without them);
+  - `status` — model status, default `ACTIVE`.
+
+  `total` counts every match, not just the page. Range filters are served by indexes on `(definition_id, normalized_min)` and `(definition_id, normalized_max)` (migration `0005`).
+
 - **Errors.** 404 `*_not_found` for unknown ids or `definitionCode`; 409 `category_exists`, `manufacturer_exists`, `definition_exists`, `model_exists` (same name for the same manufacturer, regardless of case) and `specification_exists` (one value per definition per model).
 - The same rules are enforced by `CHECK` constraints and unique indexes in the database.
 
-`pnpm --filter @ee/api db:seed` loads reference data (6 categories, 8 manufacturers, 10 definitions, 15 models). It only adds what is missing, so it is safe to run again. The specification values are illustrative round numbers, **not manufacturer data**: they cite a `TEST_FIXTURE` source ("Seed reference data") and are `REVIEW_REQUIRED`, so they can never be marked `VERIFIED`.
+`pnpm --filter @ee/api db:seed` loads reference data (6 categories, 8 manufacturers, 10 definitions, 15 models, plus the taxonomy below). It only adds what is missing, so it is safe to run again. The specification values are illustrative round numbers, **not manufacturer data**: they cite a `TEST_FIXTURE` source ("Seed reference data") and are `REVIEW_REQUIRED`, so they can never be marked `VERIFIED`.
 
 Upgrading an existing database (migration `0004`) marks every existing value `REVIEW_REQUIRED` (or `UNKNOWN` when empty) with no source; running the seed afterwards attaches the fixture source to seeded values that have none.
+
+### Equipment taxonomy
+
+What equipment can do and which construction work needs it. A **capability** (`DEEP_EXCAVATION`, `LIFTING`, …) is a named ability and never carries a number — numbers stay in specifications. A **construction task** (`FOUNDATION_EXCAVATION`, …) is a kind of site work. Four kinds of link connect them, each unique per pair (a duplicate returns 409 `link_exists`):
+
+| Link                  | Extra fields                                              |
+| --------------------- | --------------------------------------------------------- |
+| model → capability    | `verificationStatus`, `verifiedAt`, `source` (provenance) |
+| category → capability | `verificationStatus`, `verifiedAt`, `source` (provenance) |
+| task → capability     | `importance`: `REQUIRED`, `PREFERRED` or `OPTIONAL`       |
+| task → category       | `suitability`: `PRIMARY` or `SECONDARY`                   |
+
+| Endpoint                                                    | Auth  | Body / query                                           |
+| ----------------------------------------------------------- | ----- | ------------------------------------------------------ |
+| `GET /capabilities`, `GET /capabilities/:code`              | —     |                                                        |
+| `POST /capabilities`                                        | ADMIN | `code`, `displayName` (409 `capability_exists`)        |
+| `GET /capabilities/:code/equipment-models`                  | —     |                                                        |
+| `GET /capabilities/:code/construction-tasks`                | —     | `?importance=`                                         |
+| `GET /construction-tasks`, `GET /construction-tasks/:id`    | —     |                                                        |
+| `POST /construction-tasks`                                  | ADMIN | `code`, `displayName` (409 `construction_task_exists`) |
+| `GET` / `POST /construction-tasks/:id/capabilities`         | ADMIN | `capabilityCode`, `importance`                         |
+| `GET` / `POST /construction-tasks/:id/equipment-categories` | ADMIN | `categoryCode`, `suitability`                          |
+| `GET` / `POST /equipment-models/:id/capabilities`           | ADMIN | `capabilityCode`, `verificationStatus?`, `sourceId?`   |
+| `GET` / `POST /equipment-categories/:id/capabilities`       | ADMIN | `capabilityCode`, `verificationStatus?`, `sourceId?`   |
+| `GET /equipment-categories/:id/construction-tasks`          | —     |                                                        |
+
+ADMIN applies to the `POST`s only; every `GET` is public. `GET /equipment-models/:id` also returns the model's `capabilities`.
+
+- **Model and category links are separate facts.** Linking a capability to a category says nothing about its models: `GET /capabilities/:code/equipment-models` returns only models linked directly.
+- **Provenance.** A link's `verificationStatus` is `REVIEW_REQUIRED` (default) or `VERIFIED`; it is never `UNKNOWN`. `VERIFIED` needs a source (400 `verification_source_required`) that is not a `TEST_FIXTURE` (400 `test_fixture_not_verifiable`), and sets `verifiedAt`. The database enforces the same rules with checks and a trigger.
+- **Importance and suitability** are stored vocabulary only; nothing ranks or recommends with them yet.
+
+The seed adds 11 capabilities, 9 construction tasks and links of all four kinds; model and category links cite the `TEST_FIXTURE` source and stay `REVIEW_REQUIRED`. Tables are created by migration `0006`.
+
+## Reference data
+
+`GET /public/reference` is unauthenticated and returns `{ cities, entityTypes }` with `Cache-Control: public, max-age=300`, for sign-up forms and city pickers.
+
+- **Cities** (`geoId`, `name`, `state`, `enabled`), ordered by name. `geoId` is a stable code such as `IN-HYD`. `enabled` marks where the marketplace operates.
+- **Entity types** (`code`, `name`), ordered by code: Indian business forms such as `SOLE_PROPRIETORSHIP`, `LLP` and `PRIVATE_LIMITED`.
+
+The seed inserts 16 Indian cities (Hyderabad, Bengaluru, Mumbai, Delhi, Chennai and Pune are enabled) and 5 entity types. It only inserts what is missing, so it never overwrites a city enabled since. Tables are created by migration `0007`.
+
+## Money
+
+Every amount is in rupees with at most two decimals: typed, sent, stored (`numeric(14,2)`) and shown the same way.
+
+- `@ee/contracts` (`packages/contracts/src/money.ts`): `roundRupees(value)` rounds to paise, half away from zero, without float errors (`roundRupees(1.005) === 1.01`, `roundRupees(0.1 + 0.2) === 0.3`). `rupeesSchema` takes non-negative amounts with at most two decimals, so `1.005` is rejected. `rateSchema` adds a ceiling of 1,000,000. `signedRupeesSchema` allows negatives.
+- `apps/api/src/platform/money.ts`: `readNumeric` parses a `numeric` column (a string from pg) into a number. `toNumericString` formats an amount for writing. `addRupees` and `multiplyRupees` round after every step.
+
+No table stores money yet.
 
 ## Client
 
