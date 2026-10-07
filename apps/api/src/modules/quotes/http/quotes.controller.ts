@@ -22,11 +22,14 @@ import {
   type UpdateQuoteRequest,
 } from '@ee/contracts';
 import { AuthGuard, CurrentUser, Roles, RolesGuard, type AuthUser } from '../../../platform/auth';
-import { IdPipe, notImplemented, ZodValidationPipe } from '../../../platform/http';
+import { IdPipe, ZodValidationPipe } from '../../../platform/http';
+import { QuotesService } from '../application/quotes.service';
 
 @Controller('quotes')
 @UseGuards(AuthGuard, RolesGuard)
 export class QuotesController {
+  constructor(private readonly quotes: QuotesService) {}
+
   /** Creates a `DRAFT` quote for a pending rental request on the supplier's listing. */
   @Post()
   @Roles('SUPPLIER')
@@ -34,7 +37,7 @@ export class QuotesController {
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createQuoteSchema)) body: CreateQuoteRequest,
   ): Promise<QuoteDto> {
-    return notImplemented(user, body);
+    return this.quotes.create(user.accountId, body);
   }
 
   @Get('supplier')
@@ -43,7 +46,7 @@ export class QuotesController {
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(listQuotesQuerySchema)) query: ListQuotesQuery,
   ): Promise<QuotePageDto> {
-    return notImplemented(user, query);
+    return this.quotes.list({ role: 'SUPPLIER', accountId: user.accountId }, query);
   }
 
   /** Only `DRAFT` or `PENDING_APPROVAL` quotes; a sent quote is locked. */
@@ -54,14 +57,14 @@ export class QuotesController {
     @Param('id', IdPipe) id: string,
     @Body(new ZodValidationPipe(updateQuoteSchema)) body: UpdateQuoteRequest,
   ): Promise<QuoteDto> {
-    return notImplemented(user, id, body);
+    return this.quotes.update(user.accountId, id, body);
   }
 
   @Post(':id/send')
   @HttpCode(200)
   @Roles('SUPPLIER')
   send(@CurrentUser() user: AuthUser, @Param('id', IdPipe) id: string): Promise<QuoteDto> {
-    return notImplemented(user, id);
+    return this.quotes.send(user.accountId, id);
   }
 
   /** Sent quotes only; drafts and auto-drafts awaiting approval are never visible to builders. */
@@ -71,7 +74,7 @@ export class QuotesController {
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(listQuotesQuerySchema)) query: ListQuotesQuery,
   ): Promise<QuotePageDto> {
-    return notImplemented(user, query);
+    return this.quotes.list({ role: 'BUILDER', accountId: user.accountId }, query);
   }
 
   /** Creates the booking and settles the request (and requirement) in one transaction. */
@@ -79,7 +82,7 @@ export class QuotesController {
   @HttpCode(200)
   @Roles('BUILDER')
   accept(@CurrentUser() user: AuthUser, @Param('id', IdPipe) id: string): Promise<QuoteDto> {
-    return notImplemented(user, id);
+    return this.quotes.accept(user.accountId, id);
   }
 
   @Post(':id/reject')
@@ -90,12 +93,15 @@ export class QuotesController {
     @Param('id', IdPipe) id: string,
     @Body(new ZodValidationPipe(rejectQuoteSchema)) body: RejectQuoteRequest,
   ): Promise<QuoteDto> {
-    return notImplemented(user, id, body);
+    return this.quotes.reject(user.accountId, id, body);
   }
 
   @Get(':id')
   @Roles('BUILDER', 'SUPPLIER')
   get(@CurrentUser() user: AuthUser, @Param('id', IdPipe) id: string): Promise<QuoteDto> {
-    return notImplemented(user, id);
+    return this.quotes.getFor(
+      { role: user.role === 'BUILDER' ? 'BUILDER' : 'SUPPLIER', accountId: user.accountId },
+      id,
+    );
   }
 }

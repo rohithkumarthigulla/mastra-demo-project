@@ -8,11 +8,13 @@ import {
   AVAILABILITY_REPOSITORY,
   BlockAlreadyLiftedError,
   BlockNotFoundError,
+  BlockOverBookingError,
   BlockOverlapError,
   PublicListingNotFoundError,
   assertBlockNotInPast,
   type AvailabilityRepository,
   type BlockView,
+  type BookingSlot,
   type TimeRange,
 } from '../domain';
 
@@ -20,6 +22,12 @@ export interface UnitCalendar {
   unit: UnitView;
   range: TimeRange;
   blocks: BlockView[];
+  bookings: BookingSlot[];
+}
+
+interface Busy {
+  blocks: BlockView[];
+  bookings: BookingSlot[];
 }
 
 @Injectable()
@@ -41,6 +49,9 @@ export class AvailabilityService {
     const now = this.clock.now();
     assertBlockNotInPast(range.start, now);
     if (await this.repo.hasActiveOverlap(unit.id, range)) throw new BlockOverlapError();
+    if ((await this.repo.listActiveBookings([unit.id], range)).length > 0) {
+      throw new BlockOverBookingError();
+    }
     try {
       return await this.repo.createBlock(
         {
@@ -71,20 +82,21 @@ export class AvailabilityService {
 
   async unitCalendar(accountId: string, unitId: string, range: TimeRange): Promise<UnitCalendar> {
     const unit = await this.fleet.getUnit(accountId, unitId);
-    return { unit, range, blocks: await this.busyIntervals([unit.id], range) };
+    return { unit, range, ...(await this.busyIntervals([unit.id], range)) };
   }
 
   /** One lane per ACTIVE unit of the supplier. */
   async fleetCalendar(accountId: string, range: TimeRange): Promise<UnitCalendar[]> {
     const units = await this.fleet.listUnits(accountId, { status: 'ACTIVE' });
-    const blocks = await this.busyIntervals(
+    const busy = await this.busyIntervals(
       units.map((u) => u.id),
       range,
     );
     return units.map((unit) => ({
       unit,
       range,
-      blocks: blocks.filter((b) => b.unitId === unit.id),
+      blocks: busy.blocks.filter((b) => b.unitId === unit.id),
+      bookings: busy.bookings.filter((b) => b.unitId === unit.id),
     }));
   }
 
@@ -94,17 +106,22 @@ export class AvailabilityService {
   ): Promise<{ totalUnits: number; availableUnits: number }> {
     const unitIds = await this.repo.findPublicListingUnitIds(listingId);
     if (!unitIds) throw new PublicListingNotFoundError();
-    const busy = new Set((await this.busyIntervals(unitIds, range)).map((b) => b.unitId));
+    const { blocks, bookings } = await this.busyIntervals(unitIds, range);
+    const busy = new Set([...blocks, ...bookings].map((b) => b.unitId));
     return { totalUnits: unitIds.length, availableUnits: unitIds.length - busy.size };
   }
 
   /**
    * Everything that makes a unit unavailable in `range`. A unit is available iff it is
-   * ACTIVE and nothing here overlaps; bookings will join maintenance blocks here.
+   * ACTIVE and nothing here overlaps: an ACTIVE maintenance block or an active booking.
    */
-  private busyIntervals(unitIds: string[], range: TimeRange): Promise<BlockView[]> {
-    if (unitIds.length === 0) return Promise.resolve([]);
-    return this.repo.listActiveBlocks(unitIds, range);
+  private async busyIntervals(unitIds: string[], range: TimeRange): Promise<Busy> {
+    if (unitIds.length === 0) return { blocks: [], bookings: [] };
+    const [blocks, bookings] = await Promise.all([
+      this.repo.listActiveBlocks(unitIds, range),
+      this.repo.listActiveBookings(unitIds, range),
+    ]);
+    return { blocks, bookings };
   }
 
   private async ownedBlock(accountId: string, blockId: string): Promise<BlockView> {

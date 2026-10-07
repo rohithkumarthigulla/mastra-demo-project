@@ -33,7 +33,17 @@ const FEATURE_PREFIXES = [
   '/equipment-assistant',
   '/supplier-agent',
 ];
-const IMPLEMENTED_PREFIXES = ['/equipment-assistant', '/supplier-agent'];
+/** Feature routes that are built; their behaviour is covered by their own module specs. */
+const IMPLEMENTED_PREFIXES = [
+  '/equipment-assistant',
+  '/supplier-agent',
+  '/requirements',
+  '/notifications',
+  '/rental-requests',
+  '/supplier/listings/:id/rate-card',
+  '/quotes',
+  '/bookings',
+];
 
 interface RegisteredRoute {
   method: string;

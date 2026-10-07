@@ -8,18 +8,31 @@ import {
   type ListBookingsQuery,
 } from '@ee/contracts';
 import { AuthGuard, CurrentUser, Roles, RolesGuard, type AuthUser } from '../../../platform/auth';
-import { IdPipe, notImplemented, ZodValidationPipe } from '../../../platform/http';
+import { IdPipe, ZodValidationPipe } from '../../../platform/http';
+import { BookingsService } from '../application';
+import type { BookingViewer } from '../infrastructure/booking.reader';
+
+const viewerOf = (user: AuthUser): BookingViewer => ({
+  role: user.role === 'BUILDER' ? 'BUILDER' : 'SUPPLIER',
+  accountId: user.accountId,
+});
+const supplier = (user: AuthUser): BookingViewer => ({
+  role: 'SUPPLIER',
+  accountId: user.accountId,
+});
 
 @Controller('bookings')
 @UseGuards(AuthGuard, RolesGuard)
 export class BookingsController {
+  constructor(private readonly bookings: BookingsService) {}
+
   @Get('supplier')
   @Roles('SUPPLIER')
   listForSupplier(
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(listBookingsQuerySchema)) query: ListBookingsQuery,
   ): Promise<BookingPageDto> {
-    return notImplemented(user, query);
+    return this.bookings.list(supplier(user), query);
   }
 
   @Get('builder')
@@ -28,13 +41,13 @@ export class BookingsController {
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(listBookingsQuerySchema)) query: ListBookingsQuery,
   ): Promise<BookingPageDto> {
-    return notImplemented(user, query);
+    return this.bookings.list({ role: 'BUILDER', accountId: user.accountId }, query);
   }
 
   @Get(':id')
   @Roles('BUILDER', 'SUPPLIER')
   get(@CurrentUser() user: AuthUser, @Param('id', IdPipe) id: string): Promise<BookingDto> {
-    return notImplemented(user, id);
+    return this.bookings.get(viewerOf(user), id);
   }
 
   /** `CONFIRMED` → `OUT_FOR_DELIVERY`. */
@@ -42,7 +55,7 @@ export class BookingsController {
   @HttpCode(200)
   @Roles('SUPPLIER')
   dispatch(@CurrentUser() user: AuthUser, @Param('id', IdPipe) id: string): Promise<BookingDto> {
-    return notImplemented(user, id);
+    return this.bookings.transition(supplier(user), id, 'dispatch');
   }
 
   /** `OUT_FOR_DELIVERY` → `ON_RENT`. */
@@ -50,7 +63,7 @@ export class BookingsController {
   @HttpCode(200)
   @Roles('SUPPLIER')
   startRent(@CurrentUser() user: AuthUser, @Param('id', IdPipe) id: string): Promise<BookingDto> {
-    return notImplemented(user, id);
+    return this.bookings.transition(supplier(user), id, 'start-rent');
   }
 
   /** `ON_RENT` → `RETURNED`. */
@@ -58,7 +71,7 @@ export class BookingsController {
   @HttpCode(200)
   @Roles('SUPPLIER')
   complete(@CurrentUser() user: AuthUser, @Param('id', IdPipe) id: string): Promise<BookingDto> {
-    return notImplemented(user, id);
+    return this.bookings.transition(supplier(user), id, 'complete');
   }
 
   /** Allowed from `CONFIRMED` or `OUT_FOR_DELIVERY` only. */
@@ -70,6 +83,6 @@ export class BookingsController {
     @Param('id', IdPipe) id: string,
     @Body(new ZodValidationPipe(cancelBookingSchema)) body: CancelBookingRequest,
   ): Promise<BookingDto> {
-    return notImplemented(user, id, body);
+    return this.bookings.transition(viewerOf(user), id, 'cancel', body.reason);
   }
 }

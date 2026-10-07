@@ -1,1 +1,1 @@
-export {};
+export { BookingsService } from './bookings.service';

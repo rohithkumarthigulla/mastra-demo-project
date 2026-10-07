@@ -1,1 +1,1 @@
-export {};
+export { QuotesService } from './quotes.service';

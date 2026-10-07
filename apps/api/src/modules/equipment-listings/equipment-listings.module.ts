@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ENV, type Env } from '../../platform/config';
-import { EquipmentListingsService, ListingMediaService } from './application';
+import { EquipmentListingsService, ListingMediaService, RateCardsService } from './application';
 import {
   EQUIPMENT_LISTING_REPOSITORY,
   LISTING_MEDIA_REPOSITORY,
@@ -29,6 +29,7 @@ import {
   providers: [
     EquipmentListingsService,
     ListingMediaService,
+    RateCardsService,
     OptionalAuthGuard,
     { provide: EQUIPMENT_LISTING_REPOSITORY, useClass: DrizzleEquipmentListingsRepository },
     { provide: LISTING_MEDIA_REPOSITORY, useClass: DrizzleListingMediaRepository },
