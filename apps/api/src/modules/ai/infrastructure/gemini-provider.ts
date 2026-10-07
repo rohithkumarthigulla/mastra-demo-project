@@ -40,6 +40,10 @@ export class GeminiProvider implements AiProvider {
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
+  get embeddingModel(): string {
+    return this.config.embeddingModel;
+  }
+
   async chat(request: ChatRequest): Promise<ChatResponse> {
     const body = {
       systemInstruction: { parts: [{ text: request.system }] },

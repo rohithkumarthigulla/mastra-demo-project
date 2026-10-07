@@ -14,6 +14,8 @@ import { normalize } from './vector';
  * tools it is offered and only ever answers from tool results.
  */
 export class FakeProvider implements AiProvider {
+  readonly embeddingModel = 'fake-hash-768';
+
   embed(texts: string[]): Promise<number[][]> {
     return Promise.resolve(texts.map(fakeEmbedding));
   }

@@ -43,6 +43,8 @@ export type EmbeddingPurpose = 'document' | 'query';
 
 /** The only way the app talks to a language model. */
 export interface AiProvider {
+  /** Stored with each embedding so vectors from different models are never mixed. */
+  readonly embeddingModel: string;
   chat(request: ChatRequest): Promise<ChatResponse>;
   /** One vector of `EMBEDDING_DIMENSIONS` numbers per text, in input order. */
   embed(texts: string[], purpose: EmbeddingPurpose): Promise<number[][]>;

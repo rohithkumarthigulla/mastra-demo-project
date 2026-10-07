@@ -7,3 +7,4 @@ export {
   knowledgeChunks,
   knowledgeDocuments,
 } from '../../../platform/database/schema';
+export { DrizzleKnowledgeRepository } from './drizzle-knowledge.repository';

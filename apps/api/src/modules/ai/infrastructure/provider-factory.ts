@@ -5,6 +5,8 @@ import { GeminiProvider } from './gemini-provider';
 
 /** Lets the API boot without a key; every assistant call answers 503. */
 export class UnconfiguredProvider implements AiProvider {
+  readonly embeddingModel = 'none';
+
   chat(): Promise<ChatResponse> {
     return Promise.reject(new AssistantNotConfiguredError());
   }

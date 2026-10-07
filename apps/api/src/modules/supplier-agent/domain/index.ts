@@ -1,1 +1,1 @@
-export {};
+export * from './knowledge-repository';
