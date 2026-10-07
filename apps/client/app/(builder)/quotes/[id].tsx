@@ -8,7 +8,6 @@ import {
   Field,
   formatDate,
   formatDateRange,
-  PreviewBanner,
   QuoteStatusBadge,
   useAcceptQuoteAction,
   useQuoteDetail,
@@ -59,7 +58,6 @@ export default function QuoteDetailScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Quote' }} />
-      <PreviewBanner />
       <Heading title={item.listing.title} subtitle={`Quote from ${item.supplierName}`} />
       <QuoteStatusBadge status={lapsed && item.status === 'SENT' ? 'EXPIRED' : item.status} />
 

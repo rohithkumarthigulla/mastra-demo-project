@@ -13,6 +13,7 @@ import {
   Muted,
   supplierErrorMessage,
 } from '../../../features/supplier';
+import { bookingStage, StageBar } from '../../../features/progress';
 import { useTheme } from '../../../features/theme';
 import {
   Chips,
@@ -84,6 +85,7 @@ export default function SupplierBookingsScreen() {
                   <BookingStatusBadge status={booking.status} />
                   <Muted>{formatRupees(booking.total)}</Muted>
                 </View>
+                <StageBar state={bookingStage(booking)} compact />
               </Card>
             ))}
           </View>

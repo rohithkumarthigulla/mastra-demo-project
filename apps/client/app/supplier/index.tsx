@@ -43,6 +43,11 @@ export default function SupplierHomeScreen() {
           onPress={() => router.push('/supplier/fleet/listings')}
         />
         <Button
+          title="Supplier assistant"
+          variant="secondary"
+          onPress={() => router.push('/supplier/agent')}
+        />
+        <Button
           title="Company profile"
           variant="secondary"
           onPress={() => router.push('/supplier/company')}

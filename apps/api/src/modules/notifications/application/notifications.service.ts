@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../platform/auth';
 import {
+  NOTIFICATION_TONES,
   NOTIFICATIONS_REPOSITORY,
   NotificationNotFoundError,
   type DbExecutor,
+  type NotificationDraft,
   type NewNotification,
   type Notification,
   type NotificationList,
@@ -36,8 +38,12 @@ export class NotificationsService {
    * Sends in-app notifications. Pass the caller's transaction so the notifications commit or
    * roll back together with the state change that caused them.
    */
-  async notify(rows: NewNotification[], tx?: DbExecutor): Promise<void> {
+  async notify(rows: NotificationDraft[], tx?: DbExecutor): Promise<void> {
     if (rows.length === 0) return;
-    await this.repo.insertMany(rows, this.clock.now(), tx);
+    const withTones = rows.map((row): NewNotification => ({
+      ...row,
+      tone: row.tone ?? NOTIFICATION_TONES[row.kind],
+    }));
+    await this.repo.insertMany(withTones, this.clock.now(), tx);
   }
 }

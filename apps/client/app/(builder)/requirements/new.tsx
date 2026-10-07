@@ -4,14 +4,14 @@ import {
   REQUIREMENT_TITLE_MAX,
   todayInRentalZone,
 } from '@ee/contracts';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { formErrorsFromApi, type FieldErrors } from '../../../features/auth';
-import { PreviewBanner, useCreateRequirementAction } from '../../../features/progress';
+import { useCreateRequirementAction } from '../../../features/progress';
 import { useCategories, useCities } from '../../../features/rental';
 import {
-  emptyRequirementForm,
+  requirementFormFromParams,
   validateRequirementForm,
   type RequirementFormValues,
 } from '../../../features/requirements';
@@ -33,9 +33,10 @@ export default function NewRequirementScreen() {
   const create = useCreateRequirementAction();
   const { cities, isLoading: citiesLoading } = useCities();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const params = useLocalSearchParams();
 
   const [values, setValues] = useState<RequirementFormValues>(() =>
-    emptyRequirementForm(todayInRentalZone()),
+    requirementFormFromParams(params, todayInRentalZone()),
   );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string>();
@@ -52,25 +53,20 @@ export default function NewRequirementScreen() {
     }
     setErrors({});
     setFormError(undefined);
-    const cityName = cities.find((c) => c.geoId === result.value.cityGeoId)?.name ?? '';
-    create.mutate(
-      { body: result.value, cityName },
-      {
-        onSuccess: (created) =>
-          router.replace({ pathname: '/requirements/[id]', params: { id: created.id } }),
-        onError: (error) => {
-          const { fields, form } = formErrorsFromApi(error);
-          setErrors(fields);
-          setFormError(form);
-        },
+    create.mutate(result.value, {
+      onSuccess: (created) =>
+        router.replace({ pathname: '/requirements/[id]', params: { id: created.id } }),
+      onError: (error) => {
+        const { fields, form } = formErrorsFromApi(error);
+        setErrors(fields);
+        setFormError(form);
       },
-    );
+    });
   };
 
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Post a requirement' }} />
-      <PreviewBanner />
       <Heading
         title="Post a requirement"
         subtitle="Saved as a draft. Next you pick which suppliers to send it to."

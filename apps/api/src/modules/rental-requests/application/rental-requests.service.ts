@@ -31,7 +31,7 @@ import {
   RentalRequestNotFoundError,
   RentalRequestNotPendingError,
 } from '../domain/errors';
-import { notify } from '../infrastructure/notify';
+import { NotificationsService } from '../../notifications/application';
 import {
   findRequestDto,
   listRequestDtos,
@@ -41,13 +41,15 @@ import {
 const builder = (accountId: string): RequestViewer => ({ role: 'BUILDER', accountId });
 const supplier = (accountId: string): RequestViewer => ({ role: 'SUPPLIER', accountId });
 
-export const requestHref = (id: string) => `/rental-requests/${id}`;
+export const builderRequestHref = (id: string) => `/requests/${id}`;
+export const supplierRequestHref = (id: string) => `/supplier/pipeline/requests/${id}`;
 
 @Injectable()
 export class RentalRequestsService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(accountId: string, body: CreateRentalRequest): Promise<RentalRequestDto> {
@@ -112,18 +114,17 @@ export class RentalRequestsService {
         pricePerDay: readNumeric(listing.pricePerDay)!,
         now,
       });
-      await notify(
-        tx,
+      await this.notifications.notify(
         [
           {
             accountId: listing.supplierAccountId,
             kind: 'REQUEST_RECEIVED',
             title: `New rental request for ${listing.title}`,
             detail: `${body.startDate} to ${body.endDate}`,
-            href: requestHref(requestId),
+            href: supplierRequestHref(requestId),
           },
         ],
-        now,
+        tx,
       );
       return requestId;
     });
@@ -171,17 +172,16 @@ export class RentalRequestsService {
     await this.db.transaction(async (tx) => {
       await this.closePending(tx, id, { status: 'CANCELLED', updatedAt: now });
       const supplierAccountId = await this.supplierAccountOf(tx, id);
-      await notify(
-        tx,
+      await this.notifications.notify(
         [
           {
             accountId: supplierAccountId,
             kind: 'REQUEST_WITHDRAWN',
             title: `${current.builderName} cancelled their request for ${current.listing.title}`,
-            href: requestHref(id),
+            href: supplierRequestHref(id),
           },
         ],
-        now,
+        tx,
       );
     });
     return this.get(viewer, id);
@@ -201,18 +201,17 @@ export class RentalRequestsService {
         declineReason: body.reason ?? null,
         updatedAt: now,
       });
-      await notify(
-        tx,
+      await this.notifications.notify(
         [
           {
             accountId: builderAccountId,
             kind: 'REQUEST_DECLINED',
             title: `${current.supplierName} declined your request for ${current.listing.title}`,
             detail: body.reason ?? null,
-            href: requestHref(id),
+            href: builderRequestHref(id),
           },
         ],
-        now,
+        tx,
       );
     });
     return this.get(viewer, id);
@@ -231,17 +230,16 @@ export class RentalRequestsService {
           .where(and(eq(rentalRequests.id, id), isNull(rentalRequests.viewedAt)))
           .returning({ builderAccountId: rentalRequests.builderAccountId });
         if (!first) return;
-        await notify(
-          tx,
+        await this.notifications.notify(
           [
             {
               accountId: first.builderAccountId,
               kind: 'JOB_VIEWED',
               title: `${current.supplierName} viewed your request for ${current.listing.title}`,
-              href: requestHref(id),
+              href: builderRequestHref(id),
             },
           ],
-          now,
+          tx,
         );
       });
     }

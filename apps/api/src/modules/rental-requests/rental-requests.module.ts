@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { RentalRequestsService } from './application';
 import { RentalRequestsController } from './http';
 
-@Module({ controllers: [RentalRequestsController], providers: [RentalRequestsService] })
+@Module({
+  imports: [NotificationsModule],
+  controllers: [RentalRequestsController],
+  providers: [RentalRequestsService],
+})
 export class RentalRequestsModule {}

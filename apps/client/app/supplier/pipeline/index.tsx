@@ -14,6 +14,7 @@ import {
   RequestStatusBadge,
   supplierErrorMessage,
 } from '../../../features/supplier';
+import { requestStage, StageBar } from '../../../features/progress';
 import { useTheme } from '../../../features/theme';
 import {
   Button,
@@ -106,6 +107,7 @@ export default function IncomingRequestsScreen() {
                     </>
                   ) : null}
                 </View>
+                <StageBar state={requestStage(request)} compact />
               </Card>
             ))}
           </View>

@@ -24,6 +24,7 @@ import {
   supplierErrorMessage,
   useRefreshFleet,
 } from '../../../features/supplier';
+import { bookingStage, StageBar } from '../../../features/progress';
 import { useTheme } from '../../../features/theme';
 import { Button, ErrorMessage, Heading, LoadingIndicator, Screen } from '../../../features/ui';
 
@@ -74,6 +75,7 @@ export default function BookingScreen() {
     <Screen>
       <Stack.Screen options={{ title: 'Booking' }} />
       <Heading title={`Booking for ${b.builderName}`} subtitle={b.listing.title} />
+      <StageBar state={bookingStage(b)} />
       <View style={{ flexDirection: 'row', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
         <BookingStatusBadge status={b.status} />
         <Button

@@ -20,19 +20,3 @@ export class ConflictError extends DomainError {
     super(code, message, 409);
   }
 }
-
-/** Route is registered with its final path, roles and validation, but has no handler yet. */
-export class NotImplementedError extends DomainError {
-  constructor() {
-    super('NOT_IMPLEMENTED', 'This endpoint is not implemented yet', 501);
-  }
-}
-
-/**
- * Body of a stub handler. Takes the validated inputs so stubs keep their final signature
- * and the pipes still run (400 on bad input) until the real handler replaces it.
- */
-export function notImplemented(...inputs: unknown[]): never {
-  void inputs;
-  throw new NotImplementedError();
-}

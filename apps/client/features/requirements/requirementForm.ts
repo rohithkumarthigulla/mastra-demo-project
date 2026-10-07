@@ -1,4 +1,8 @@
-import { createRequirementSchema, type CreateRequirementRequest } from '@ee/contracts';
+import {
+  createRequirementSchema,
+  type CreateRequirementRequest,
+  type DraftRequirementDto,
+} from '@ee/contracts';
 import { fieldErrorsFromZod, type FieldErrors } from '../auth/formErrors';
 import { validateRentalDates } from '../rental/estimate';
 
@@ -25,6 +29,49 @@ export function emptyRequirementForm(today: string): RequirementFormValues {
     budgetPerDay: '',
     notes: '',
   };
+}
+
+/** Route params that carry an assistant draft into the requirement form. */
+export type RequirementDraftParams = Partial<
+  Record<
+    'title' | 'categoryCode' | 'cityGeoId' | 'startDate' | 'endDate' | 'quantity' | 'notes',
+    string
+  >
+>;
+
+export function draftToRequirementParams(draft: DraftRequirementDto): RequirementDraftParams {
+  const params: RequirementDraftParams = {
+    title: draft.title,
+    categoryCode: draft.categoryCode,
+    quantity: String(draft.quantity),
+  };
+  if (draft.cityGeoId) params.cityGeoId = draft.cityGeoId;
+  if (draft.startDate) params.startDate = draft.startDate;
+  if (draft.endDate) params.endDate = draft.endDate;
+  if (draft.notes) params.notes = draft.notes;
+  return params;
+}
+
+/** Starts the form from route params, falling back to an empty form for anything missing. */
+export function requirementFormFromParams(
+  params: Record<string, string | string[] | undefined>,
+  today: string,
+): RequirementFormValues {
+  const form = emptyRequirementForm(today);
+  const keys: (keyof RequirementDraftParams)[] = [
+    'title',
+    'categoryCode',
+    'cityGeoId',
+    'startDate',
+    'endDate',
+    'quantity',
+    'notes',
+  ];
+  for (const key of keys) {
+    const value = params[key];
+    if (typeof value === 'string' && value !== '') form[key] = value;
+  }
+  return form;
 }
 
 export type RequirementFormResult =

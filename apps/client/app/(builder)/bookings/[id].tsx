@@ -10,7 +10,6 @@ import {
   bookingTimeline,
   Field,
   formatDateRange,
-  PreviewBanner,
   StageBar,
   Timeline,
   useBookingDetail,
@@ -77,7 +76,6 @@ export default function BookingDetailScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Booking' }} />
-      <PreviewBanner />
       <Heading title={item.listing.title} subtitle={`Booked from ${item.supplierName}`} />
       <BookingStatusBadge status={item.status} />
       <StageBar state={bookingStage(item)} />

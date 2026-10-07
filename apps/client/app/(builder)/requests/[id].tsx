@@ -5,7 +5,6 @@ import { formErrorsFromApi } from '../../../features/auth';
 import {
   Field,
   formatDateRange,
-  PreviewBanner,
   QuoteStatusBadge,
   RequestStatusBadge,
   requestStage,
@@ -53,7 +52,6 @@ export default function RequestDetailScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Request' }} />
-      <PreviewBanner />
       <Heading title={item.listing.title} subtitle={`From ${item.supplierName}`} />
       <RequestStatusBadge status={item.status} />
       <StageBar state={requestStage(item)} />
