@@ -3,11 +3,28 @@
     "name": "EquipmentExchange",
     "slug": "equipment-exchange",
     "scheme": "equipmentexchange",
-    "version": "0.0.0",
+    "version": "1.0.0",
     "platforms": ["ios", "android", "web"],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1f4e79"
+    },
+    "ios": {
+      "bundleIdentifier": "com.equipmentexchange.app"
+    },
+    "android": {
+      "package": "com.equipmentexchange.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1f4e79"
+      }
+    },
     "plugins": ["expo-router", "expo-secure-store"],
     "web": {
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/icon.png"
     }
   }
 }

@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/web-build
+**/coverage
+**/*.tsbuildinfo
+**/.expo
+**/.expo-shared
+**/.env
+**/.env.*
+**/storage
+.git
+.artifacts
+Dockerfile
+.dockerignore

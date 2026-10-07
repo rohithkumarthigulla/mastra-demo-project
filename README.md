@@ -56,6 +56,8 @@ The api validates its environment on startup and exits with a clear message if a
 
 `GET /health` returns 503 `{"code":"database_unavailable",...}` when the database is down or migrations have not been applied.
 
+Deploying the api and building the Android and web apps: see [docs/deployment.md](docs/deployment.md).
+
 ## Authentication
 
 Accounts live in the `accounts` module (`apps/api/src/modules/accounts`). Request and response shapes are in `@ee/contracts` (`packages/contracts/src/accounts.ts`).
