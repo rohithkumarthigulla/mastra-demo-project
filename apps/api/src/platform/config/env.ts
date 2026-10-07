@@ -21,6 +21,16 @@ export const envSchema = z.object({
     .int()
     .positive()
     .default(8 * 1024 * 1024),
+  /** Without a key the API still starts; assistant endpoints answer 503. */
+  GEMINI_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  GEMINI_CHAT_MODEL: z.string().min(1).default('gemini-2.5-flash'),
+  GEMINI_EMBEDDING_MODEL: z.string().min(1).default('gemini-embedding-001'),
+  AI_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
+  /** `fake` is a deterministic offline provider for tests and local demos. */
+  AI_PROVIDER: z.enum(['gemini', 'fake']).default('gemini'),
 });
 
 export type Env = z.infer<typeof envSchema>;
