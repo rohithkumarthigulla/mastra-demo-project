@@ -5,6 +5,8 @@ import {
   date,
   doublePrecision,
   index,
+  integer,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -399,3 +401,69 @@ export const entityTypes = pgTable('entity_types', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const listingStatus = pgEnum('listing_status', ['DRAFT', 'ACTIVE', 'INACTIVE']);
+
+/**
+ * A supplier's rentable unit. The category is not stored: it always comes from the
+ * equipment model so the listing cannot disagree with the knowledge base.
+ */
+export const equipmentListings = pgTable(
+  'equipment_listings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    supplierProfileId: uuid('supplier_profile_id')
+      .notNull()
+      .references(() => supplierProfiles.id, { onDelete: 'cascade' }),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => equipmentModels.id, { onDelete: 'restrict' }),
+    cityId: uuid('city_id')
+      .notNull()
+      .references(() => cities.id, { onDelete: 'restrict' }),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    location: text('location').notNull(),
+    pricePerDay: numeric('price_per_day', { precision: 14, scale: 2 }).notNull(),
+    status: listingStatus('status').notNull().default('DRAFT'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'equipment_listings_price_chk',
+      sql`${t.pricePerDay} > 0 AND ${t.pricePerDay} <= 1000000`,
+    ),
+    index('equipment_listings_supplier_profile_id_idx').on(t.supplierProfileId),
+    index('equipment_listings_status_city_idx').on(t.status, t.cityId),
+    index('equipment_listings_status_created_at_idx').on(t.status, t.createdAt),
+    index('equipment_listings_model_id_idx').on(t.modelId),
+  ],
+);
+
+export const listingMedia = pgTable(
+  'listing_media',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    listingId: uuid('listing_id')
+      .notNull()
+      .references(() => equipmentListings.id, { onDelete: 'cascade' }),
+    storageKey: text('storage_key').notNull().unique(),
+    originalFilename: text('original_filename').notNull(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    position: integer('position').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'listing_media_mime_type_chk',
+      sql`${t.mimeType} IN ('image/jpeg', 'image/png', 'image/webp')`,
+    ),
+    check('listing_media_size_bytes_chk', sql`${t.sizeBytes} > 0`),
+    check('listing_media_position_chk', sql`${t.position} >= 0`),
+    // Not unique so a reorder can rewrite positions row by row without deferred constraints.
+    index('listing_media_listing_position_idx').on(t.listingId, t.position),
+  ],
+);

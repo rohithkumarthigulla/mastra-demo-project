@@ -45,4 +45,21 @@ describe('parseEnv', () => {
     assert.deepEqual(parseEnv({ ...base, CORS_ORIGINS: 'a, b,' }).CORS_ORIGINS, ['a', 'b']);
     assert.deepEqual(parseEnv(base).CORS_ORIGINS, []);
   });
+
+  it('defaults listing media settings and accepts overrides', () => {
+    const defaults = parseEnv(base);
+    assert.equal(defaults.LISTING_MEDIA_DIR, './storage/listing-media');
+    assert.equal(defaults.LISTING_MEDIA_MAX_BYTES, 8 * 1024 * 1024);
+    const custom = parseEnv({
+      ...base,
+      LISTING_MEDIA_DIR: '/tmp/m',
+      LISTING_MEDIA_MAX_BYTES: '1024',
+    });
+    assert.equal(custom.LISTING_MEDIA_DIR, '/tmp/m');
+    assert.equal(custom.LISTING_MEDIA_MAX_BYTES, 1024);
+    assert.throws(
+      () => parseEnv({ ...base, LISTING_MEDIA_MAX_BYTES: '0' }),
+      /LISTING_MEDIA_MAX_BYTES/,
+    );
+  });
 });
