@@ -1,4 +1,10 @@
-export { createApiClient, type ApiClient, type ApiClientOptions } from './client';
+export {
+  createApiClient,
+  toQueryString,
+  type ApiClient,
+  type ApiClientOptions,
+  type UploadFile,
+} from './client';
 export { getApiBaseUrl } from './config';
 export { ApiError } from './errors';
 export { createQueryClient } from './queryClient';

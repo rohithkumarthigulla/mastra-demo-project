@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 export const MAX_LISTING_PHOTOS = 10;
 
+/** Largest photo the API accepts by default (`LISTING_MEDIA_MAX_BYTES`), 8 MiB. */
+export const MAX_LISTING_PHOTO_BYTES = 8 * 1024 * 1024;
+
 export const LISTING_MEDIA_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export const listingMediaMimeTypeSchema = z.enum(LISTING_MEDIA_MIME_TYPES);
 export type ListingMediaMimeType = z.infer<typeof listingMediaMimeTypeSchema>;
