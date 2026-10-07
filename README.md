@@ -38,6 +38,7 @@ cp apps/api/.env.example apps/api/.env
 pnpm db:up                          # start PostgreSQL on localhost:5432
 pnpm build
 pnpm --filter @ee/api db:migrate    # apply database migrations
+pnpm --filter @ee/api db:seed       # optional: load equipment reference data
 pnpm --filter @ee/api start         # api on http://localhost:3000
 curl http://localhost:3000/health   # {"status":"ok"}
 pnpm --filter @ee/client web        # client in the browser
@@ -102,6 +103,32 @@ Each `SUPPLIER` account can have one company profile (`apps/api/src/modules/supp
 
 `displayName` is trimmed and must be 2–120 characters (400 `validation_failed` otherwise). Deleting an account deletes its profile.
 
+## Equipment knowledge base
+
+Reference data about kinds of plant (`apps/api/src/modules/equipment-knowledge`, contracts in `packages/contracts/src/equipment-knowledge.ts`): categories, manufacturers, the models they make, and specifications for each model. Reads are public; every write needs the `ADMIN` role (401 signed out, 403 any other role).
+
+| Endpoint                                             | Body                                                                   | Success                                              |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| `GET /equipment-categories`                          |                                                                        | 200 list                                             |
+| `POST /equipment-categories`                         | `code` (`UPPER_SNAKE_CASE`), `displayName`                             | 201                                                  |
+| `GET /manufacturers`                                 |                                                                        | 200 list                                             |
+| `POST /manufacturers`                                | `name` (unique regardless of case)                                     | 201                                                  |
+| `GET /specification-definitions`                     |                                                                        | 200 list                                             |
+| `POST /specification-definitions`                    | `code`, `displayName`, `valueType` (`NUMERIC`/`TEXT`), `canonicalUnit` | 201                                                  |
+| `GET /equipment-models?limit=&offset=`               |                                                                        | 200 `{ items, limit, offset, total }`                |
+| `GET /equipment-models/:id`                          |                                                                        | 200 model with `specifications`                      |
+| `POST /equipment-models`                             | `manufacturerId`, `categoryId`, `modelName`, `modelCode?`, `status?`   | 201                                                  |
+| `POST /equipment-models/:id/specifications`          | `definitionCode` plus one value shape (below)                          | 201 specification with `normalizedMin/normalizedMax` |
+| `PATCH /equipment-models/:id/specifications/:specId` | any of the value fields; `null` clears one, omitted keeps it           | 200                                                  |
+
+- **Value shapes.** A specification is exactly one of: a single value (`numericValue` + `unit`), a range (`minValue` + `maxValue` + `unit`), text (`textValue`, for `TEXT` definitions), or nothing (value unknown). Mixed or incomplete shapes return 400 `invalid_specification_shape`; negative or non-finite numbers 400 `invalid_specification_value`; `minValue > maxValue` 400 `invalid_specification_range`.
+- **Units.** `kg`/`t` (mass), `mm`/`m` (length), `kW`/`hp` (power, 1 hp = 745.7 W), `m3` (volume). A `NUMERIC` definition has a fixed `canonicalUnit`; values can be sent in any unit of the same dimension and are also stored converted to the canonical unit in `normalizedMin`/`normalizedMax` (rounded to 9 decimals), so `6720 mm` on a metre definition gives `6.72`. Other dimensions return 400 `incompatible_unit`. The canonical unit cannot be changed once set.
+- **Paging.** `limit` defaults to 50 and may be 1–200; `offset` defaults to 0. Models are sorted by manufacturer, then model name.
+- **Errors.** 404 `*_not_found` for unknown ids or `definitionCode`; 409 `category_exists`, `manufacturer_exists`, `definition_exists`, `model_exists` (same name for the same manufacturer, regardless of case) and `specification_exists` (one value per definition per model).
+- The same rules are enforced by `CHECK` constraints and unique indexes in the database.
+
+`pnpm --filter @ee/api db:seed` loads reference data (6 categories, 8 manufacturers, 10 definitions, 15 models). It only adds what is missing, so it is safe to run again. The specification values are illustrative round numbers, **not manufacturer data**.
+
 ## Client
 
 The Expo app (`apps/client`) signs people in and sends them to the area for their role.
@@ -124,5 +151,6 @@ The Expo app (`apps/client`) signs people in and sends them to the area for thei
 | `pnpm db:down`                      | stops it                                                                            |
 | `pnpm --filter @ee/api db:generate` | generates a migration from `src/platform/database/schema.ts`                        |
 | `pnpm --filter @ee/api db:migrate`  | applies pending migrations                                                          |
+| `pnpm --filter @ee/api db:seed`     | loads equipment knowledge reference data (idempotent)                               |
 
 CI (`.github/workflows/ci.yml`) runs these checks against PostgreSQL on every push and pull request, then smoke-tests `GET /health`.
