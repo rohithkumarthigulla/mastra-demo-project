@@ -2,7 +2,12 @@ import { type PipeTransform } from '@nestjs/common';
 import type { CalendarSlotDto, MaintenanceBlockDto, UnitCalendarDto } from '@ee/contracts';
 import { z } from 'zod';
 import type { UnitCalendar } from '../application';
-import { BlockNotFoundError, PublicListingNotFoundError, type BlockView } from '../domain';
+import {
+  BlockNotFoundError,
+  PublicListingNotFoundError,
+  type BlockView,
+  type BookingSlot,
+} from '../domain';
 
 /** A malformed id can never match, so it is a 404 rather than a 400. */
 export class BlockIdPipe implements PipeTransform<unknown, string> {
@@ -46,6 +51,15 @@ function toSlotDto(block: BlockView): CalendarSlotDto {
   };
 }
 
+function toBookedSlotDto(booking: BookingSlot): CalendarSlotDto {
+  return {
+    state: 'BOOKED',
+    startAt: booking.startAt.toISOString(),
+    endAt: booking.endAt.toISOString(),
+    source: { type: 'BOOKING', id: booking.id },
+  };
+}
+
 export function toUnitCalendarDto(calendar: UnitCalendar): UnitCalendarDto {
   return {
     unitId: calendar.unit.id,
@@ -53,6 +67,8 @@ export function toUnitCalendarDto(calendar: UnitCalendar): UnitCalendarDto {
     yard: { id: calendar.unit.yard.id, name: calendar.unit.yard.name },
     from: calendar.range.start.toISOString(),
     to: calendar.range.end.toISOString(),
-    slots: calendar.blocks.map(toSlotDto),
+    slots: [...calendar.blocks.map(toSlotDto), ...calendar.bookings.map(toBookedSlotDto)].sort(
+      (a, b) => a.startAt.localeCompare(b.startAt),
+    ),
   };
 }

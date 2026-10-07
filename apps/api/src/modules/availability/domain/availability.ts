@@ -31,3 +31,11 @@ export interface BlockView extends BlockFields {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** An active booking (CONFIRMED, OUT_FOR_DELIVERY or ON_RENT) holding a unit. */
+export interface BookingSlot {
+  id: string;
+  unitId: string;
+  startAt: Date;
+  endAt: Date;
+}

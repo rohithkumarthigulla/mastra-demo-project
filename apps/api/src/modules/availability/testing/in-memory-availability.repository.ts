@@ -4,6 +4,7 @@ import {
   type AvailabilityRepository,
   type BlockFields,
   type BlockView,
+  type BookingSlot,
   type TimeRange,
 } from '../domain';
 
@@ -17,6 +18,8 @@ function exclusionViolation(): Error {
 
 export class InMemoryAvailabilityRepository implements AvailabilityRepository {
   readonly blocks: BlockView[] = [];
+  /** Active bookings; tests push here to occupy a unit. */
+  readonly bookings: BookingSlot[] = [];
   /** Listing ids that are publicly visible (status ACTIVE). */
   readonly publicListings = new Set<string>();
 
@@ -65,6 +68,17 @@ export class InMemoryAvailabilityRepository implements AvailabilityRepository {
   listActiveBlocks(unitIds: string[], range: TimeRange): Promise<BlockView[]> {
     return Promise.resolve(
       this.activeOverlapping(unitIds, range)
+        .sort((a, b) => a.startAt.getTime() - b.startAt.getTime() || a.id.localeCompare(b.id))
+        .map((b) => ({ ...b })),
+    );
+  }
+
+  listActiveBookings(unitIds: string[], range: TimeRange): Promise<BookingSlot[]> {
+    return Promise.resolve(
+      this.bookings
+        .filter(
+          (b) => unitIds.includes(b.unitId) && overlaps({ start: b.startAt, end: b.endAt }, range),
+        )
         .sort((a, b) => a.startAt.getTime() - b.startAt.getTime() || a.id.localeCompare(b.id))
         .map((b) => ({ ...b })),
     );

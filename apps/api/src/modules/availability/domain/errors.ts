@@ -29,3 +29,9 @@ export class PublicListingNotFoundError extends NotFoundError {
     super('listing_not_found', 'Listing not found');
   }
 }
+
+export class BlockOverBookingError extends ConflictError {
+  constructor() {
+    super('block_over_booking', 'This machine is booked for part of that time');
+  }
+}

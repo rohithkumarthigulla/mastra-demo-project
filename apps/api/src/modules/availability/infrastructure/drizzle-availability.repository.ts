@@ -1,12 +1,20 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ACTIVE_BOOKING_STATUSES } from '@ee/contracts';
 import { and, asc, eq, gt, inArray, lt } from 'drizzle-orm';
 import { DB, type Database } from '../../../platform/database';
 import {
+  bookings,
   equipmentListings,
   equipmentUnits,
   maintenanceBlocks,
 } from '../../../platform/database/schema';
-import type { AvailabilityRepository, BlockFields, BlockView, TimeRange } from '../domain';
+import type {
+  AvailabilityRepository,
+  BlockFields,
+  BlockView,
+  BookingSlot,
+  TimeRange,
+} from '../domain';
 
 const overlapping = (range: TimeRange) =>
   and(lt(maintenanceBlocks.startAt, range.end), gt(maintenanceBlocks.endAt, range.start));
@@ -82,5 +90,25 @@ export class DrizzleAvailabilityRepository implements AvailabilityRepository {
         ),
       )
       .orderBy(asc(maintenanceBlocks.startAt), asc(maintenanceBlocks.id));
+  }
+
+  listActiveBookings(unitIds: string[], range: TimeRange): Promise<BookingSlot[]> {
+    return this.db
+      .select({
+        id: bookings.id,
+        unitId: bookings.equipmentUnitId,
+        startAt: bookings.startAt,
+        endAt: bookings.endAt,
+      })
+      .from(bookings)
+      .where(
+        and(
+          inArray(bookings.equipmentUnitId, unitIds),
+          inArray(bookings.status, [...ACTIVE_BOOKING_STATUSES]),
+          lt(bookings.startAt, range.end),
+          gt(bookings.endAt, range.start),
+        ),
+      )
+      .orderBy(asc(bookings.startAt), asc(bookings.id));
   }
 }

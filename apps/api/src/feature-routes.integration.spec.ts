@@ -35,7 +35,12 @@ const FEATURE_PREFIXES = [
   '/supplier-agent',
 ];
 
-const IMPLEMENTED_PREFIXES = ['/rental-requests', '/supplier/listings/:id/rate-card', '/quotes'];
+const IMPLEMENTED_PREFIXES = [
+  '/rental-requests',
+  '/supplier/listings/:id/rate-card',
+  '/quotes',
+  '/bookings',
+];
 const isStub = (route: RouteContract) =>
   !IMPLEMENTED_PREFIXES.some((prefix) => route.path.startsWith(prefix));
 
