@@ -1,1 +1,1 @@
-export {};
+export { NotificationsController } from './notifications.controller';

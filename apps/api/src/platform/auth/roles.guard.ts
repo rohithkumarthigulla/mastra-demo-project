@@ -4,7 +4,7 @@ import type { AccountRole } from '@ee/contracts';
 import { DomainError } from '../http';
 import type { AuthenticatedRequest } from './auth.guard';
 
-const ROLES_KEY = 'roles';
+export const ROLES_KEY = 'roles';
 
 /** Restricts a route or controller to the given roles. Pair with `@UseGuards(AuthGuard, RolesGuard)`. */
 export const Roles = (...roles: AccountRole[]) => SetMetadata(ROLES_KEY, roles);

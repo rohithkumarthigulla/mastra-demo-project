@@ -1,1 +1,1 @@
-export {};
+export { SupplierAgentController } from './supplier-agent.controller';

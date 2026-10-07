@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RentalRequestsController } from './http';
 
-@Module({})
+@Module({ controllers: [RentalRequestsController] })
 export class RentalRequestsModule {}
