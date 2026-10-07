@@ -13,6 +13,7 @@ import { CLOCK, type Clock } from '../../../platform/auth';
 import {
   CategoryExistsError,
   CategoryNotFoundError,
+  convert,
   DefinitionExistsError,
   DefinitionNotFoundError,
   EQUIPMENT_KNOWLEDGE_REPOSITORY,
@@ -20,10 +21,13 @@ import {
   ManufacturerNotFoundError,
   ModelExistsError,
   ModelNotFoundError,
+  NonNumericSpecificationError,
   resolveSpecificationValue,
   resolveVerification,
   SourceNotFoundError,
   SpecificationNotFoundError,
+  UnknownSpecificationCodeError,
+  type SpecConstraint,
   type EquipmentCategory,
   type EquipmentKnowledgeRepository,
   type EquipmentModel,
@@ -105,8 +109,42 @@ export class EquipmentKnowledgeService {
     });
   }
 
-  listModels(page: ListEquipmentModelsQuery): Promise<{ items: EquipmentModel[]; total: number }> {
-    return this.repo.listModels(page);
+  /**
+   * An unknown category matches nothing. An unknown spec code, a TEXT definition or a unit
+   * from another dimension is a client error rather than an empty result.
+   */
+  async searchModels(
+    query: ListEquipmentModelsQuery,
+  ): Promise<{ items: EquipmentModel[]; total: number }> {
+    const specs: SpecConstraint[] = [];
+    for (const filter of query.spec) {
+      const definition = await this.repo.findDefinitionByCode(filter.code);
+      if (!definition) throw new UnknownSpecificationCodeError(filter.code);
+      if (definition.canonicalUnit === null) throw new NonNumericSpecificationError(filter.code);
+      specs.push({
+        definitionId: definition.id,
+        bound: filter.bound,
+        value: convert(filter.value, filter.unit, definition.canonicalUnit),
+      });
+    }
+
+    let categoryId: string | undefined;
+    if (query.category !== undefined) {
+      const category = await this.repo.findCategoryByCode(query.category);
+      if (!category) return { items: [], total: 0 };
+      categoryId = category.id;
+    }
+
+    return this.repo.searchModels({
+      categoryId,
+      manufacturer: query.manufacturer,
+      model: query.model,
+      status: query.status,
+      specs,
+      verificationStatus: query.verificationStatus,
+      limit: query.limit,
+      offset: query.offset,
+    });
   }
 
   async getModel(id: string): Promise<EquipmentModelDetail> {

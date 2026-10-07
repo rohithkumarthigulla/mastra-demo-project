@@ -121,7 +121,46 @@ export type UpdateEquipmentSpecificationRequest = z.infer<
 
 export const MAX_PAGE_LIMIT = 200;
 
+export const MAX_SPEC_FILTERS = 10;
+
+const specFilterPattern = new RegExp(
+  `^([A-Z][A-Z0-9_]*):(min|max):(\\d+(?:\\.\\d+)?):(${unitSchema.options.join('|')})$`,
+);
+
+/** `CODE:min|max:VALUE:UNIT`; `min` means at least, `max` means at most. */
+export const specFilterSchema = z
+  .string()
+  .trim()
+  .regex(
+    specFilterPattern,
+    'must look like CODE:min|max:VALUE:UNIT, e.g. MAX_DIGGING_DEPTH:min:5:m',
+  )
+  .transform((raw) => {
+    const [, code, bound, value, unit] = specFilterPattern.exec(raw)!;
+    return {
+      code: code!,
+      bound: bound as 'min' | 'max',
+      value: Number(value),
+      unit: unit as Unit,
+    };
+  });
+export type SpecFilter = z.infer<typeof specFilterSchema>;
+
+const searchTextSchema = z.string().trim().min(1).max(120);
+
+/** Query strings give a string for one value and an array for repeats. */
+const toArray = (value: unknown) =>
+  value === undefined ? [] : Array.isArray(value) ? value : [value];
+
+/** All filters are optional and combined with AND. */
 export const listEquipmentModelsQuerySchema = z.object({
+  category: knowledgeCodeSchema.optional(),
+  manufacturer: searchTextSchema.optional(),
+  model: searchTextSchema.optional(),
+  spec: z.preprocess(toArray, z.array(specFilterSchema).max(MAX_SPEC_FILTERS)),
+  /** Only specifications with this status count towards `spec` filters. */
+  verificationStatus: verificationStatusSchema.optional(),
+  status: equipmentModelStatusSchema.default('ACTIVE'),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_LIMIT).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });

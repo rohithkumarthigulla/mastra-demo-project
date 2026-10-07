@@ -10,7 +10,33 @@ import type {
   SpecificationValue,
   SpecificationValueType,
   SpecificationVerification,
+  VerificationStatus,
 } from './entities';
+
+/**
+ * A model matches a spec constraint when it has a specification for the definition whose
+ * normalized range reaches the bound (`min`: normalizedMax >= value, `max`: normalizedMin <= value).
+ * Values are in the definition's canonical unit. Rows without normalized values never match.
+ */
+export interface SpecConstraint {
+  definitionId: string;
+  bound: 'min' | 'max';
+  value: number;
+}
+
+export interface ModelSearchCriteria {
+  categoryId?: string;
+  /** Exact manufacturer name, case-insensitive. */
+  manufacturer?: string;
+  /** Case-insensitive substring of model name or model code. */
+  model?: string;
+  status: EquipmentModelStatus;
+  specs: SpecConstraint[];
+  /** Restricts which specifications can satisfy `specs`. */
+  verificationStatus?: VerificationStatus;
+  limit: number;
+  offset: number;
+}
 
 export const EQUIPMENT_KNOWLEDGE_REPOSITORY = Symbol('EQUIPMENT_KNOWLEDGE_REPOSITORY');
 
@@ -53,7 +79,7 @@ export interface EquipmentKnowledgeRepository {
     status: EquipmentModelStatus;
   }): Promise<EquipmentModel>;
   /** Ordered by manufacturer name, model name, id. */
-  listModels(page: { limit: number; offset: number }): Promise<{
+  searchModels(criteria: ModelSearchCriteria): Promise<{
     items: EquipmentModel[];
     total: number;
   }>;

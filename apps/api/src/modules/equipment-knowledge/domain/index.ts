@@ -15,7 +15,12 @@ export type {
   VerificationStatus,
 } from './entities';
 export * from './errors';
-export { EQUIPMENT_KNOWLEDGE_REPOSITORY, type EquipmentKnowledgeRepository } from './repository';
+export {
+  EQUIPMENT_KNOWLEDGE_REPOSITORY,
+  type EquipmentKnowledgeRepository,
+  type ModelSearchCriteria,
+  type SpecConstraint,
+} from './repository';
 export { resolveSpecificationValue, type SpecificationValueInput } from './specification-value';
 export { convert, dimensionOf, roundNormalized, type Dimension, type Unit } from './units';
 export { hasSpecificationValue, resolveVerification, type VerificationInput } from './verification';

@@ -539,3 +539,151 @@ describe('equipment knowledge (integration)', () => {
     assert.equal(cleared.source, null);
   });
 });
+
+describe('equipment model search (integration)', () => {
+  /**
+   * Excavators: JS220 (6.72 m, 22 t, depth VERIFIED), JS130/JS130LC (4.5 m, 20 t),
+   * 320 (4–6 m range, 30 t), 323 (depth UNKNOWN, 24 t), JS300 (7 m, 24 t, INACTIVE).
+   * Loader: 3CX (6 m, 8 t).
+   */
+  async function searchApp() {
+    const http = await createApp();
+    const { manufacturer: jcb, category: excavator, model: js220 } = await http.fixture();
+    const cat = await http.adminPost('/manufacturers', { name: 'Caterpillar' });
+    const loader = await http.adminPost('/equipment-categories', {
+      code: 'BACKHOE_LOADER',
+      displayName: 'Backhoe loader',
+    });
+    await http.adminPost('/specification-definitions', {
+      code: 'OPERATING_WEIGHT',
+      displayName: 'Operating weight',
+      valueType: 'NUMERIC',
+      canonicalUnit: 't',
+    });
+    const source = await http.adminPost('/specification-sources', {
+      sourceType: 'MANUFACTURER',
+      sourceName: 'JCB brochure',
+    });
+
+    const model = (manufacturerId: string, categoryId: string, extra: object) =>
+      http.adminPost('/equipment-models', { manufacturerId, categoryId, ...extra });
+    const spec = (modelId: string, payload: object) =>
+      http.adminPost(`/equipment-models/${modelId}/specifications`, payload);
+    const depth = (modelId: string, payload: object) =>
+      spec(modelId, { definitionCode: 'MAX_DIGGING_DEPTH', ...payload });
+    const weight = (modelId: string, tonnes: number) =>
+      spec(modelId, { definitionCode: 'OPERATING_WEIGHT', numericValue: tonnes, unit: 't' });
+
+    await depth(js220.id, {
+      numericValue: 6720,
+      unit: 'mm',
+      verificationStatus: 'VERIFIED',
+      sourceId: source.id,
+    });
+    await weight(js220.id, 22);
+
+    const js130 = await model(jcb.id, excavator.id, { modelName: 'JS130', modelCode: 'JS130LC' });
+    await depth(js130.id, { numericValue: 4.5, unit: 'm' });
+    await weight(js130.id, 20);
+
+    const c320 = await model(cat.id, excavator.id, { modelName: '320', modelCode: '320 GC' });
+    await depth(c320.id, { minValue: 4, maxValue: 6, unit: 'm' });
+    await weight(c320.id, 30);
+
+    const c323 = await model(cat.id, excavator.id, { modelName: '323' });
+    await depth(c323.id, {});
+    await weight(c323.id, 24);
+
+    const js300 = await model(jcb.id, excavator.id, { modelName: 'JS300', status: 'INACTIVE' });
+    await depth(js300.id, { numericValue: 7, unit: 'm' });
+    await weight(js300.id, 24);
+
+    const cx3 = await model(jcb.id, loader.id, { modelName: '3CX' });
+    await depth(cx3.id, { numericValue: 6, unit: 'm' });
+    await weight(cx3.id, 8);
+
+    const search = async (query: string) => {
+      const res = await http.request('GET', `/equipment-models?${query}`);
+      assert.equal(res.statusCode, 200, res.body);
+      const body = res.json();
+      return {
+        names: body.items.map((m: { modelName: string }) => m.modelName) as string[],
+        total: body.total as number,
+      };
+    };
+    return { http, search };
+  }
+
+  it('answers the example query: excavators digging at least 5 m and weighing at most 25 t', async () => {
+    const { search } = await searchApp();
+    const result = await search(
+      'category=EXCAVATOR&spec=MAX_DIGGING_DEPTH:min:5:m&spec=OPERATING_WEIGHT:max:25:t',
+    );
+    assert.deepEqual(result, { names: ['JS220'], total: 1 });
+
+    const inactive = await search(
+      'category=EXCAVATOR&spec=MAX_DIGGING_DEPTH:min:5:m&spec=OPERATING_WEIGHT:max:25:t&status=INACTIVE',
+    );
+    assert.deepEqual(inactive.names, ['JS300']);
+  });
+
+  it('normalizes the filter unit, matches any part of a range and never matches UNKNOWN', async () => {
+    const { search } = await searchApp();
+    const inMetres = await search('spec=MAX_DIGGING_DEPTH:min:5:m');
+    const inMillimetres = await search('spec=MAX_DIGGING_DEPTH:min:5000:mm');
+    assert.deepEqual(inMetres.names, ['320', '3CX', 'JS220']);
+    assert.deepEqual(inMillimetres, inMetres);
+
+    assert.deepEqual((await search('spec=MAX_DIGGING_DEPTH:max:4500:mm')).names, ['320', 'JS130']);
+    assert.deepEqual((await search('spec=OPERATING_WEIGHT:max:24000:kg')).names, [
+      '323',
+      '3CX',
+      'JS130',
+      'JS220',
+    ]);
+    const anyDepth = await search('spec=MAX_DIGGING_DEPTH:min:0:m');
+    assert.ok(!anyDepth.names.includes('323'));
+  });
+
+  it('filters by category, manufacturer, model text and verification status', async () => {
+    const { search } = await searchApp();
+    assert.deepEqual(await search('category=BACKHOE_LOADER'), { names: ['3CX'], total: 1 });
+    assert.deepEqual(await search('category=CRANE'), { names: [], total: 0 });
+    assert.deepEqual((await search('manufacturer=caterpillar')).names, ['320', '323']);
+    assert.deepEqual((await search('manufacturer=cat')).names, []);
+    assert.deepEqual((await search('model=lc')).names, ['JS130']);
+    assert.deepEqual((await search('model=32')).names, ['320', '323']);
+    assert.deepEqual((await search('model=%25')).names, []);
+    assert.deepEqual(
+      (await search('spec=MAX_DIGGING_DEPTH:min:5:m&verificationStatus=VERIFIED')).names,
+      ['JS220'],
+    );
+    assert.deepEqual(
+      (await search('spec=MAX_DIGGING_DEPTH:min:5:m&verificationStatus=REVIEW_REQUIRED')).names,
+      ['320', '3CX'],
+    );
+  });
+
+  it('counts the total across pages of filtered results', async () => {
+    const { search } = await searchApp();
+    const page = await search('category=EXCAVATOR&limit=2&offset=1');
+    assert.deepEqual(page, { names: ['323', 'JS130'], total: 4 });
+  });
+
+  it('rejects unknown codes, cross-dimension units and malformed filters with 400', async () => {
+    const { http } = await searchApp();
+    const code = async (query: string) => {
+      const res = await http.request('GET', `/equipment-models?${query}`);
+      assert.equal(res.statusCode, 400, query);
+      return res.json().code;
+    };
+    assert.equal(await code('spec=BUCKET_SIZE:min:1:m3'), 'unknown_specification_code');
+    assert.equal(await code('spec=MAX_DIGGING_DEPTH:min:5:kg'), 'incompatible_unit');
+    assert.equal(await code('spec=ENGINE_MODEL:min:5:m'), 'non_numeric_specification');
+    assert.equal(await code('spec=MAX_DIGGING_DEPTH:atleast:5:m'), 'validation_failed');
+    assert.equal(await code('spec=MAX_DIGGING_DEPTH:min:5:ft'), 'validation_failed');
+    assert.equal(await code('status=ARCHIVED'), 'validation_failed');
+    assert.equal(await code('verificationStatus=MAYBE'), 'validation_failed');
+    assert.equal(await code('limit=201'), 'validation_failed');
+  });
+});

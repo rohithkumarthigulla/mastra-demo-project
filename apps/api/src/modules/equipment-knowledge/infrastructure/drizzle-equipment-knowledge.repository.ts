@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, sql } from 'drizzle-orm';
+import { and, asc, count, eq, exists, gte, ilike, lte, or, sql } from 'drizzle-orm';
 import { DB, isUniqueViolation, type Database } from '../../../platform/database';
 import {
   equipmentCategories,
@@ -21,6 +21,7 @@ import {
   type EquipmentModelStatus,
   type EquipmentSpecification,
   type Manufacturer,
+  type ModelSearchCriteria,
   type SpecificationDefinition,
   type SpecificationSource,
   type SpecificationValue,
@@ -64,6 +65,11 @@ const specificationColumns = {
   createdAt: equipmentSpecifications.createdAt,
   updatedAt: equipmentSpecifications.updatedAt,
 };
+
+/** ILIKE pattern matching `text` literally anywhere in the value. */
+function containsPattern(text: string): string {
+  return `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
 
 async function insertOrConflict<T>(insert: Promise<T>, conflict: () => Error): Promise<T> {
   try {
@@ -211,23 +217,62 @@ export class DrizzleEquipmentKnowledgeRepository implements EquipmentKnowledgeRe
     return row!;
   }
 
-  async listModels(page: { limit: number; offset: number }): Promise<{
+  async searchModels(criteria: ModelSearchCriteria): Promise<{
     items: EquipmentModel[];
     total: number;
   }> {
+    const where = and(
+      eq(equipmentModels.status, criteria.status),
+      criteria.categoryId === undefined
+        ? undefined
+        : eq(equipmentModels.categoryId, criteria.categoryId),
+      criteria.manufacturer === undefined
+        ? undefined
+        : eq(sql`lower(${manufacturers.name})`, criteria.manufacturer.toLowerCase()),
+      criteria.model === undefined
+        ? undefined
+        : or(
+            ilike(equipmentModels.modelName, containsPattern(criteria.model)),
+            ilike(equipmentModels.modelCode, containsPattern(criteria.model)),
+          ),
+      ...criteria.specs.map((spec) =>
+        exists(
+          this.db
+            .select({ one: sql`1` })
+            .from(equipmentSpecifications)
+            .where(
+              and(
+                eq(equipmentSpecifications.modelId, equipmentModels.id),
+                eq(equipmentSpecifications.definitionId, spec.definitionId),
+                spec.bound === 'min'
+                  ? gte(equipmentSpecifications.normalizedMax, spec.value)
+                  : lte(equipmentSpecifications.normalizedMin, spec.value),
+                criteria.verificationStatus === undefined
+                  ? undefined
+                  : eq(equipmentSpecifications.verificationStatus, criteria.verificationStatus),
+              ),
+            ),
+        ),
+      ),
+    );
     const [items, [totals]] = await Promise.all([
       this.db
         .select(modelColumns)
         .from(equipmentModels)
         .innerJoin(manufacturers, eq(manufacturers.id, equipmentModels.manufacturerId))
+        .where(where)
         .orderBy(
           asc(sql`lower(${manufacturers.name})`),
           asc(sql`lower(${equipmentModels.modelName})`),
           asc(equipmentModels.id),
         )
-        .limit(page.limit)
-        .offset(page.offset),
-      this.db.select({ total: count() }).from(equipmentModels),
+        .limit(criteria.limit)
+        .offset(criteria.offset),
+      this.db
+        .select({ total: count() })
+        .from(equipmentModels)
+        .innerJoin(manufacturers, eq(manufacturers.id, equipmentModels.manufacturerId))
+        .where(where),
     ]);
     return { items, total: totals?.total ?? 0 };
   }

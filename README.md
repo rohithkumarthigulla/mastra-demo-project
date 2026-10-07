@@ -117,7 +117,7 @@ Reference data about kinds of plant (`apps/api/src/modules/equipment-knowledge`,
 | `POST /specification-definitions`                    | `code`, `displayName`, `valueType` (`NUMERIC`/`TEXT`), `canonicalUnit`                                | 201                                                                                                |
 | `GET /specification-sources`                         |                                                                                                       | 200 list                                                                                           |
 | `POST /specification-sources`                        | `sourceType`, `sourceName`, `referenceUrl?`, `documentName?`, `retrievedAt?` (`YYYY-MM-DD`), `notes?` | 201                                                                                                |
-| `GET /equipment-models?limit=&offset=`               |                                                                                                       | 200 `{ items, limit, offset, total }`                                                              |
+| `GET /equipment-models` (search, below)              |                                                                                                       | 200 `{ items, limit, offset, total }`                                                              |
 | `GET /equipment-models/:id`                          |                                                                                                       | 200 model with `specifications`                                                                    |
 | `POST /equipment-models`                             | `manufacturerId`, `categoryId`, `modelName`, `modelCode?`, `status?`                                  | 201                                                                                                |
 | `POST /equipment-models/:id/specifications`          | `definitionCode` plus one value shape (below), `verificationStatus?`, `sourceId?`                     | 201 specification with `normalizedMin/normalizedMax`, `verificationStatus`, `verifiedAt`, `source` |
@@ -131,6 +131,16 @@ Reference data about kinds of plant (`apps/api/src/modules/equipment-knowledge`,
   - `VERIFIED` needs a source (`verification_source_required`) that is not a `TEST_FIXTURE` (`test_fixture_not_verifiable`).
 - **`verifiedAt`** is set when a value becomes `VERIFIED` (and refreshed when `VERIFIED` is sent again) and cleared when it leaves `VERIFIED`. On PATCH, changing the value without sending `verificationStatus` resets the status to its default, so an edited value needs re-verifying; changing only the source keeps the status but re-checks the rules.
 - **Paging.** `limit` defaults to 50 and may be 1–200; `offset` defaults to 0. Models are sorted by manufacturer, then model name.
+- **Search.** `GET /equipment-models` takes filters that are combined with AND:
+  - `category` — category code, exact (an unknown code matches nothing);
+  - `manufacturer` — manufacturer name, exact regardless of case;
+  - `model` — text contained in the model name or model code, regardless of case;
+  - `spec=CODE:min|max:VALUE:UNIT` — repeatable (up to 10), e.g. `?category=EXCAVATOR&spec=MAX_DIGGING_DEPTH:min:5:m&spec=OPERATING_WEIGHT:max:25:t`. The value is converted to the definition's canonical unit first, so `:min:5000:mm` equals `:min:5:m`. A range matches when any part of it meets the bound (`4–6 m` matches `min:5:m` and `max:4.5:m`); an `UNKNOWN` (empty) value never matches. An unknown code returns 400 `unknown_specification_code`, a unit of another dimension 400 `incompatible_unit`, a `TEXT` definition 400 `non_numeric_specification`, a malformed filter 400 `validation_failed`;
+  - `verificationStatus` — only spec values with this status satisfy the `spec` filters (no effect without them);
+  - `status` — model status, default `ACTIVE`.
+
+  `total` counts every match, not just the page. Range filters are served by indexes on `(definition_id, normalized_min)` and `(definition_id, normalized_max)` (migration `0005`).
+
 - **Errors.** 404 `*_not_found` for unknown ids or `definitionCode`; 409 `category_exists`, `manufacturer_exists`, `definition_exists`, `model_exists` (same name for the same manufacturer, regardless of case) and `specification_exists` (one value per definition per model).
 - The same rules are enforced by `CHECK` constraints and unique indexes in the database.
 

@@ -26,7 +26,7 @@ export class EquipmentModelsController {
   async list(
     @Query(new ZodValidationPipe(listEquipmentModelsQuerySchema)) query: ListEquipmentModelsQuery,
   ): Promise<EquipmentModelPageDto> {
-    const page = await this.knowledge.listModels(query);
+    const page = await this.knowledge.searchModels(query);
     return {
       items: page.items.map(modelToDto),
       limit: query.limit,

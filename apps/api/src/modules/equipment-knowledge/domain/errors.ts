@@ -66,6 +66,18 @@ export class SpecificationNotFoundError extends NotFoundError {
   }
 }
 
+export class UnknownSpecificationCodeError extends DomainError {
+  constructor(code: string) {
+    super('unknown_specification_code', `Unknown specification code ${code}`);
+  }
+}
+
+export class NonNumericSpecificationError extends DomainError {
+  constructor(code: string) {
+    super('non_numeric_specification', `Specification ${code} has no numeric value to compare`);
+  }
+}
+
 export class IncompatibleUnitError extends DomainError {
   constructor(from: string, to: string) {
     super('incompatible_unit', `Unit ${from} cannot be converted to ${to}`);

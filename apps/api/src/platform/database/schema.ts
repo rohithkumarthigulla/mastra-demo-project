@@ -198,7 +198,15 @@ export const equipmentSpecifications = pgTable(
   },
   (t) => [
     unique('equipment_specifications_model_definition_unique').on(t.modelId, t.definitionId),
-    index('equipment_specifications_definition_id_idx').on(t.definitionId),
+    // Serve spec range filters; the min index also covers lookups by definition alone.
+    index('equipment_specifications_definition_normalized_min_idx').on(
+      t.definitionId,
+      t.normalizedMin,
+    ),
+    index('equipment_specifications_definition_normalized_max_idx').on(
+      t.definitionId,
+      t.normalizedMax,
+    ),
     index('equipment_specifications_source_id_idx').on(t.sourceId),
     // An empty value is UNKNOWN, and UNKNOWN is only for an empty value.
     check(

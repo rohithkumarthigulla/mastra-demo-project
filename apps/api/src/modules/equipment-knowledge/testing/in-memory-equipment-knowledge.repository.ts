@@ -11,6 +11,8 @@ import {
   type EquipmentModelStatus,
   type EquipmentSpecification,
   type Manufacturer,
+  type ModelSearchCriteria,
+  type SpecConstraint,
   type SpecificationDefinition,
   type SpecificationSource,
   type SpecificationValue,
@@ -142,13 +144,37 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
     return { ...row };
   }
 
-  async listModels(page: { limit: number; offset: number }): Promise<{
+  async searchModels(criteria: ModelSearchCriteria): Promise<{
     items: EquipmentModel[];
     total: number;
   }> {
     const manufacturerName = (m: EquipmentModel) =>
       this.manufacturers.find((x) => x.id === m.manufacturerId)?.name.toLowerCase() ?? '';
+    const contains = (value: string | null, text: string) =>
+      value !== null && value.toLowerCase().includes(text.toLowerCase());
+    const satisfies = (m: EquipmentModel, spec: SpecConstraint) =>
+      this.specifications.some(
+        (s) =>
+          s.modelId === m.id &&
+          s.definitionId === spec.definitionId &&
+          (criteria.verificationStatus === undefined ||
+            s.verificationStatus === criteria.verificationStatus) &&
+          (spec.bound === 'min'
+            ? s.normalizedMax !== null && s.normalizedMax >= spec.value
+            : s.normalizedMin !== null && s.normalizedMin <= spec.value),
+      );
     const sorted = this.models
+      .filter(
+        (m) =>
+          m.status === criteria.status &&
+          (criteria.categoryId === undefined || m.categoryId === criteria.categoryId) &&
+          (criteria.manufacturer === undefined ||
+            manufacturerName(m) === criteria.manufacturer.toLowerCase()) &&
+          (criteria.model === undefined ||
+            contains(m.modelName, criteria.model) ||
+            contains(m.modelCode, criteria.model)) &&
+          criteria.specs.every((spec) => satisfies(m, spec)),
+      )
       .map((m) => ({ ...m }))
       .sort(
         (a, b) =>
@@ -156,7 +182,10 @@ export class InMemoryEquipmentKnowledgeRepository implements EquipmentKnowledgeR
           byText(a.modelName.toLowerCase(), b.modelName.toLowerCase()) ||
           byText(a.id, b.id),
       );
-    return { items: sorted.slice(page.offset, page.offset + page.limit), total: sorted.length };
+    return {
+      items: sorted.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: sorted.length,
+    };
   }
 
   async findModelById(id: string): Promise<EquipmentModel | null> {
