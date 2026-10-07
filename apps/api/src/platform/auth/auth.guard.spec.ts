@@ -13,6 +13,7 @@ const tokens = new TokenService(
   systemClock,
 );
 const guard = new AuthGuard(tokens);
+const user = { accountId: 'acc-1', role: 'BUILDER' } as const;
 
 function context(authorization?: string) {
   const request = { headers: { authorization } } as AuthenticatedRequest;
@@ -28,9 +29,9 @@ function is401(error: unknown): boolean {
 
 describe('AuthGuard', () => {
   it('sets request.user for a valid bearer token', () => {
-    const { ctx, request } = context(`Bearer ${tokens.signAccessToken('acc-1').accessToken}`);
+    const { ctx, request } = context(`Bearer ${tokens.signAccessToken(user).accessToken}`);
     assert.equal(guard.canActivate(ctx), true);
-    assert.deepEqual(request.user, { accountId: 'acc-1' });
+    assert.deepEqual(request.user, user);
   });
 
   it('rejects a missing header, a non-bearer scheme, and an invalid token', () => {

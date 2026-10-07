@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { RegistrableRole } from '@ee/contracts';
 import {
   CLOCK,
   InvalidAccessTokenError,
@@ -45,6 +46,7 @@ export class AuthService {
     email: string;
     password: string;
     displayName: string;
+    role: RegistrableRole;
   }): Promise<AuthResult> {
     const email = input.email.toLowerCase();
     if (await this.accounts.findByEmail(email)) throw new EmailTakenError();
@@ -52,8 +54,9 @@ export class AuthService {
       email,
       passwordHash: await this.hasher.hash(input.password),
       displayName: input.displayName,
+      role: input.role,
     });
-    return { account, ...(await this.issueTokens(account.id)) };
+    return { account, ...(await this.issueTokens(account)) };
   }
 
   async login(input: { email: string; password: string }): Promise<AuthResult> {
@@ -63,7 +66,7 @@ export class AuthService {
     const valid = await this.hasher.verify(hash, input.password);
     if (!found || !valid) throw new InvalidCredentialsError();
     const account = toAccount(found);
-    return { account, ...(await this.issueTokens(account.id)) };
+    return { account, ...(await this.issueTokens(account)) };
   }
 
   async refresh(refreshToken: string): Promise<AuthResult> {
@@ -74,7 +77,7 @@ export class AuthService {
     if (!accountId) throw new InvalidRefreshTokenError();
     const account = await this.accounts.findById(accountId);
     if (!account) throw new InvalidRefreshTokenError();
-    return { account, ...(await this.issueTokens(account.id)) };
+    return { account, ...(await this.issueTokens(account)) };
   }
 
   async logout(refreshToken: string): Promise<void> {
@@ -87,11 +90,14 @@ export class AuthService {
     return account;
   }
 
-  private async issueTokens(accountId: string): Promise<IssuedTokens> {
-    const { accessToken, expiresIn } = this.tokens.signAccessToken(accountId);
+  private async issueTokens(account: Account): Promise<IssuedTokens> {
+    const { accessToken, expiresIn } = this.tokens.signAccessToken({
+      accountId: account.id,
+      role: account.role,
+    });
     const { token, hash } = this.tokens.generateRefreshToken();
     await this.refreshTokens.create({
-      accountId,
+      accountId: account.id,
       tokenHash: hash,
       expiresAt: new Date(this.clock.now().getTime() + REFRESH_TOKEN_TTL_MS),
     });

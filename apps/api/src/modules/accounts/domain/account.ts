@@ -1,7 +1,10 @@
+import type { AccountRole } from '@ee/contracts';
+
 export interface Account {
   id: string;
   email: string;
   displayName: string;
+  role: AccountRole;
   createdAt: Date;
 }
 
@@ -10,14 +13,15 @@ export interface AccountWithPassword extends Account {
 }
 
 /** Strips private fields so they can't leak into responses. */
-export function toAccount({ id, email, displayName, createdAt }: Account): Account {
-  return { id, email, displayName, createdAt };
+export function toAccount({ id, email, displayName, role, createdAt }: Account): Account {
+  return { id, email, displayName, role, createdAt };
 }
 
 export interface NewAccount {
   email: string;
   passwordHash: string;
   displayName: string;
+  role: AccountRole;
 }
 
 export const ACCOUNT_REPOSITORY = Symbol('ACCOUNT_REPOSITORY');

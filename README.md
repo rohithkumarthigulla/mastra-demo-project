@@ -59,13 +59,13 @@ The api validates its environment on startup and exits with a clear message if a
 
 Accounts live in the `accounts` module (`apps/api/src/modules/accounts`). Request and response shapes are in `@ee/contracts` (`packages/contracts/src/accounts.ts`).
 
-| Endpoint              | Body                                                  | Success                                                  |
-| --------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
-| `POST /auth/register` | `email`, `password` (min 8), `displayName`, `client?` | 201 `{ account, accessToken, expiresIn, refreshToken? }` |
-| `POST /auth/login`    | `email`, `password`, `client?`                        | 200, same shape as register                              |
-| `POST /auth/refresh`  | `refreshToken?`, `client?`                            | 200, same shape; the old refresh token stops working     |
-| `POST /auth/logout`   | `refreshToken?`, `client?`                            | 204; revokes the refresh token                           |
-| `GET /auth/me`        | header `Authorization: Bearer <accessToken>`          | 200 `{ id, email, displayName, createdAt }`              |
+| Endpoint              | Body                                                          | Success                                                  |
+| --------------------- | ------------------------------------------------------------- | -------------------------------------------------------- |
+| `POST /auth/register` | `email`, `password` (min 8), `displayName`, `role`, `client?` | 201 `{ account, accessToken, expiresIn, refreshToken? }` |
+| `POST /auth/login`    | `email`, `password`, `client?`                                | 200, same shape as register                              |
+| `POST /auth/refresh`  | `refreshToken?`, `client?`                                    | 200, same shape; the old refresh token stops working     |
+| `POST /auth/logout`   | `refreshToken?`, `client?`                                    | 204; revokes the refresh token                           |
+| `GET /auth/me`        | header `Authorization: Bearer <accessToken>`                  | 200 `{ id, email, displayName, role, createdAt }`        |
 
 - **Passwords** are hashed with argon2id. Emails are trimmed, lower-cased and unique regardless of case.
 - **Access tokens** are HS256 JWTs signed with `JWT_SECRET`. They expire after 15 minutes (`expiresIn: 900`).
@@ -75,6 +75,32 @@ Accounts live in the `accounts` module (`apps/api/src/modules/accounts`). Reques
 - **Errors** use the usual `{ code, message }` body: 400 `validation_failed`, 401 `invalid_credentials` / `invalid_refresh_token` / `invalid_token` / `unauthenticated`, 409 `email_taken`, 429 rate limited.
 
 To protect another route, add `@UseGuards(AuthGuard)` and read the caller with `@CurrentUser()` (both from `src/platform/auth`).
+
+## Authorization
+
+Every account has one role:
+
+| Role       | Who                       | How it is set                                                             |
+| ---------- | ------------------------- | ------------------------------------------------------------------------- |
+| `SUPPLIER` | lists and rents out plant | chosen at `POST /auth/register`                                           |
+| `BUILDER`  | hires plant               | chosen at `POST /auth/register`; accounts created before roles existed    |
+| `ADMIN`    | operators                 | only by an operator in the database; registering with `ADMIN` returns 400 |
+
+- `role` is required on register and is returned on every `account` and by `GET /auth/me`.
+- The access token carries the role. The guard trusts the token, so a role change (for example `UPDATE accounts SET role = 'ADMIN' ...`) takes effect after the next `POST /auth/refresh`. `GET /auth/me` reads the database and shows the new role straight away.
+- To restrict a route, add `@UseGuards(AuthGuard, RolesGuard)` and `@Roles('SUPPLIER', ...)` on the handler or controller (all from `src/platform/auth`). Signed out returns 401 `unauthenticated`; signed in with another role returns 403 `forbidden`.
+
+### Supplier profile
+
+Each `SUPPLIER` account can have one company profile (`apps/api/src/modules/supplier-profiles`, contracts in `packages/contracts/src/supplier-profile.ts`). All routes need the `SUPPLIER` role.
+
+| Endpoint                  | Body          | Success                                                    | Errors                           |
+| ------------------------- | ------------- | ---------------------------------------------------------- | -------------------------------- |
+| `GET /supplier-profile`   |               | 200 `{ id, accountId, displayName, createdAt, updatedAt }` | 404 `supplier_profile_not_found` |
+| `POST /supplier-profile`  | `displayName` | 201, same shape                                            | 409 `supplier_profile_exists`    |
+| `PATCH /supplier-profile` | `displayName` | 200, same shape                                            | 404 `supplier_profile_not_found` |
+
+`displayName` is trimmed and must be 2–120 characters (400 `validation_failed` otherwise). Deleting an account deletes its profile.
 
 ## Scripts
 

@@ -4,6 +4,7 @@ import { ENV, type Env } from '../config';
 import { AuthGuard } from './auth.guard';
 import { CLOCK, systemClock } from './clock';
 import { PasswordHasher } from './password-hasher';
+import { RolesGuard } from './roles.guard';
 import { TokenService } from './token-service';
 
 @Global()
@@ -18,7 +19,13 @@ import { TokenService } from './token-service';
       }),
     }),
   ],
-  providers: [{ provide: CLOCK, useValue: systemClock }, PasswordHasher, TokenService, AuthGuard],
-  exports: [CLOCK, PasswordHasher, TokenService, AuthGuard],
+  providers: [
+    { provide: CLOCK, useValue: systemClock },
+    PasswordHasher,
+    TokenService,
+    AuthGuard,
+    RolesGuard,
+  ],
+  exports: [CLOCK, PasswordHasher, TokenService, AuthGuard, RolesGuard],
 })
 export class AuthModule {}

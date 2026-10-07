@@ -42,6 +42,7 @@ afterEach(async () => {
 async function createApp() {
   let now = new Date('2026-01-01T00:00:00Z');
   const clock: Clock = { now: () => now };
+  const accounts = new InMemoryAccountRepository();
 
   @Module({
     imports: [
@@ -56,7 +57,7 @@ async function createApp() {
       AuthGuard,
       { provide: PasswordHasher, useClass: FakeHasher },
       { provide: CLOCK, useValue: clock },
-      { provide: ACCOUNT_REPOSITORY, useValue: new InMemoryAccountRepository() },
+      { provide: ACCOUNT_REPOSITORY, useValue: accounts },
       { provide: REFRESH_TOKEN_REPOSITORY, useValue: new InMemoryRefreshTokenRepository() },
     ],
   })
@@ -71,6 +72,7 @@ async function createApp() {
   const server = app;
 
   return {
+    accounts,
     advance: (ms: number) => (now = new Date(now.getTime() + ms)),
     post: (
       url: string,
@@ -94,7 +96,7 @@ async function createApp() {
 }
 
 const credentials = { email: 'ada@example.com', password: 'password123' };
-const registration = { ...credentials, displayName: 'Ada' };
+const registration = { ...credentials, displayName: 'Ada', role: 'SUPPLIER' };
 
 describe('auth HTTP (native clients)', () => {
   it('register → me → login → refresh → logout', async () => {
@@ -133,6 +135,44 @@ describe('auth HTTP (native clients)', () => {
     const dup = await http.post('/auth/register', { ...registration, email: 'Ada@Example.COM' });
     assert.equal(dup.statusCode, 409);
     assert.equal(dup.json().code, 'email_taken');
+  });
+
+  it('registers SUPPLIER and BUILDER accounts and rejects ADMIN or a missing role with 400', async () => {
+    const http = await createApp();
+    const supplier = await http.post('/auth/register', registration);
+    assert.equal(supplier.statusCode, 201);
+    assert.equal(supplier.json().account.role, 'SUPPLIER');
+    const builder = await http.post('/auth/register', {
+      ...registration,
+      email: 'bob@example.com',
+      role: 'BUILDER',
+    });
+    assert.equal(builder.statusCode, 201);
+    assert.equal(builder.json().account.role, 'BUILDER');
+
+    const admin = await http.post('/auth/register', {
+      ...registration,
+      email: 'eve@example.com',
+      role: 'ADMIN',
+    });
+    assert.equal(admin.statusCode, 400);
+    assert.equal(admin.json().code, 'validation_failed');
+    const missing = await http.post('/auth/register', {
+      ...registration,
+      email: 'zed@example.com',
+      role: undefined,
+    });
+    assert.equal(missing.statusCode, 400);
+  });
+
+  it('shows an operator-assigned ADMIN role in /auth/me after the next refresh', async () => {
+    const http = await createApp();
+    const { refreshToken, account } = (await http.post('/auth/register', registration)).json();
+    const row = http.accounts.rows.find((a) => a.id === account.id)!;
+    row.role = 'ADMIN';
+    const refreshed = (await http.post('/auth/refresh', { refreshToken })).json();
+    const me = await http.me(refreshed.accessToken);
+    assert.equal(me.json().role, 'ADMIN');
   });
 
   it('validates input with 400', async () => {

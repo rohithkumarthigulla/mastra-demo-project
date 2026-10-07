@@ -28,6 +28,7 @@ function toAccountDto(account: Account): AccountDto {
     id: account.id,
     email: account.email,
     displayName: account.displayName,
+    role: account.role,
     createdAt: account.createdAt.toISOString(),
   };
 }

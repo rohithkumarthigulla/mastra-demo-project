@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
-import { DB, type Database } from '../../../platform/database';
+import { DB, isUniqueViolation, type Database } from '../../../platform/database';
 import { accounts } from '../../../platform/database/schema';
 import {
   EmailTakenError,
@@ -14,16 +14,9 @@ const publicColumns = {
   id: accounts.id,
   email: accounts.email,
   displayName: accounts.displayName,
+  role: accounts.role,
   createdAt: accounts.createdAt,
 };
-
-/** Postgres unique_violation; drizzle may wrap the driver error in `cause`. */
-function isUniqueViolation(error: unknown): boolean {
-  for (let e = error; e && typeof e === 'object'; e = (e as { cause?: unknown }).cause) {
-    if ((e as { code?: unknown }).code === '23505') return true;
-  }
-  return false;
-}
 
 @Injectable()
 export class DrizzleAccountRepository implements AccountRepository {
