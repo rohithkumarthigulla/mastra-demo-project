@@ -102,6 +102,15 @@ Each `SUPPLIER` account can have one company profile (`apps/api/src/modules/supp
 
 `displayName` is trimmed and must be 2–120 characters (400 `validation_failed` otherwise). Deleting an account deletes its profile.
 
+## Client
+
+The Expo app (`apps/client`) signs people in and sends them to the area for their role.
+
+- **API URL.** Set `EXPO_PUBLIC_API_URL` (for example `http://192.168.1.20:3000` for a phone on your network). Without it the client uses `http://localhost:3000`, or `http://10.0.2.2:3000` on the Android emulator. For the browser, add the web origin to the api's `CORS_ORIGINS` (Expo web runs on `http://localhost:8081`).
+- **Tokens.** On web the access token lives only in memory and the refresh token is the api's `httpOnly` cookie, so nothing is readable from script. On iOS and Android the refresh token is kept in `expo-secure-store`. On start the app calls `POST /auth/refresh` to restore the session.
+- **Expired tokens.** The api client (`api/client.ts`) retries a request once after a 401 by refreshing. Concurrent 401s share one refresh, because each refresh rotates the token. If the refresh itself is rejected the user is signed out.
+- **Routing.** `features/auth/routing.ts` decides every redirect: signed-out users go to `/sign-in`, builders to `/home`, suppliers to `/supplier`, and suppliers without a company profile to `/onboarding` until they create one. Each role is kept out of the other's area. `ADMIN` accounts are signed out with a notice for now.
+
 ## Scripts
 
 | Script                              | What it does                                                                        |

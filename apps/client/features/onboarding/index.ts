@@ -1,1 +1,1 @@
-export {};
+export { SupplierOnboardingForm } from './SupplierOnboardingForm';

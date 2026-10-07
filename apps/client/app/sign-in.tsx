@@ -1,3 +1,10 @@
+import { SignInForm } from '../features/auth';
+import { Screen } from '../features/ui';
+
 export default function SignInScreen() {
-  return null;
+  return (
+    <Screen centered>
+      <SignInForm />
+    </Screen>
+  );
 }
