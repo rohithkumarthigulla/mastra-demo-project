@@ -9,3 +9,5 @@ export { Screen } from './Screen';
 export { Select, type SelectOption } from './Select';
 export { TextField } from './TextField';
 export { useIsWide, WIDE_BREAKPOINT } from './useIsWide';
+export { Chips } from './Chips';
+export { useDebounced } from './useDebounced';

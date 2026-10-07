@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import type { ListingMediaDto } from '@ee/contracts';
+import type { ListingPhotoDto } from '@ee/contracts';
 import { useTheme } from '../theme';
 import { AuthImage } from './AuthImage';
 
 interface PhotoGalleryProps {
-  photos: ListingMediaDto[];
+  photos: ListingPhotoDto[];
   title: string;
   authenticated?: boolean;
 }

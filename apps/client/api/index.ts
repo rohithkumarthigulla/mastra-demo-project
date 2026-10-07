@@ -3,6 +3,7 @@ export {
   toQueryString,
   type ApiClient,
   type ApiClientOptions,
+  type ModelSearch,
   type UploadFile,
 } from './client';
 export { getApiBaseUrl } from './config';
