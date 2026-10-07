@@ -1,20 +1,28 @@
 import {
   agentConversationDetailSchema,
+  agentProgressSchema,
   agentReplySchema,
   conversationPageSchema,
   conversationSchema,
   pendingActionSchema,
+  speechStatusSchema,
+  transcriptionSchema,
   type AgentConversationDetailDto,
+  type AgentProgressDto,
   type AgentReplyDto,
   type ConversationDto,
   type ConversationPageDto,
   type CreateConversationRequest,
   type ListConversationsQuery,
   type PendingActionDto,
-  type SendChatMessageRequest,
+  type SendAgentMessageRequest,
+  type SpeechStatusDto,
+  type SynthesizeQuery,
+  type TranscribeQuery,
+  type TranscriptionDto,
 } from '@ee/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toQueryString, type ApiClient, type ApiRequest } from './client';
+import { toQueryString, type ApiClient, type ApiRequest, type UploadFile } from './client';
 
 const id = encodeURIComponent;
 const BASE = '/supplier-agent';
@@ -31,12 +39,35 @@ export function createSupplierAgentApi(request: ApiRequest) {
       request(`${BASE}/conversations/${id(conversationId)}`, {
         schema: agentConversationDetailSchema,
       }),
-    sendMessage: (conversationId: string, body: SendChatMessageRequest): Promise<AgentReplyDto> =>
+    sendMessage: (conversationId: string, body: SendAgentMessageRequest): Promise<AgentReplyDto> =>
       request(`${BASE}/conversations/${id(conversationId)}/messages`, {
         method: 'POST',
         body,
         schema: agentReplySchema,
       }),
+    /** What the agent is doing for an in-flight reply, for a plain progress line. */
+    progress: (conversationId: string): Promise<AgentProgressDto> =>
+      request(`${BASE}/conversations/${id(conversationId)}/progress`, {
+        schema: agentProgressSchema,
+      }),
+    speechStatus: (): Promise<SpeechStatusDto> =>
+      request(`${BASE}/speech`, { schema: speechStatusSchema }),
+    transcribe: (recording: UploadFile, query: TranscribeQuery = {}): Promise<TranscriptionDto> => {
+      const form = new FormData();
+      form.append(
+        'file',
+        recording as Blob,
+        recording instanceof Blob ? 'speech.webm' : recording.name,
+      );
+      return request(`${BASE}/speech/transcribe${toQueryString({ ...query })}`, {
+        method: 'POST',
+        body: form,
+        schema: transcriptionSchema,
+      });
+    },
+    /** Spoken audio (WAV) for one sentence of a reply. */
+    synthesize: (query: SynthesizeQuery): Promise<Blob> =>
+      request(`${BASE}/speech/audio${speechAudioQuery(query)}`, { blob: true }),
     confirmAction: (actionId: string): Promise<PendingActionDto> =>
       request(`${BASE}/actions/${id(actionId)}/confirm`, {
         method: 'POST',
@@ -50,12 +81,18 @@ export function createSupplierAgentApi(request: ApiRequest) {
   };
 }
 
+/** Query string for `GET /supplier-agent/speech/audio`; native players stream it by URL. */
+export function speechAudioQuery(query: SynthesizeQuery): string {
+  return toQueryString({ ...query });
+}
+
 export const supplierAgentKeys = {
   all: ['supplier-agent'] as const,
   conversations: (query: Partial<ListConversationsQuery> = {}) =>
     ['supplier-agent', 'conversations', query] as const,
   conversation: (conversationId: string) =>
     ['supplier-agent', 'conversation', conversationId] as const,
+  speech: ['supplier-agent', 'speech'] as const,
 };
 
 function useInvalidateAgent() {
@@ -93,9 +130,18 @@ export function useSendAgentMessage(api: ApiClient) {
       body,
     }: {
       conversationId: string;
-      body: SendChatMessageRequest;
+      body: SendAgentMessageRequest;
     }) => api.supplierAgent.sendMessage(conversationId, body),
     onSuccess: invalidate,
+  });
+}
+
+/** Whether the server has a speech key; without one the voice button stays hidden. */
+export function useAgentSpeechStatus(api: ApiClient) {
+  return useQuery({
+    queryKey: supplierAgentKeys.speech,
+    queryFn: api.supplierAgent.speechStatus,
+    staleTime: Infinity,
   });
 }
 

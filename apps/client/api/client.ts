@@ -62,6 +62,8 @@ export interface RequestOptions<T> {
   schema?: ZodType<T>;
   /** Send the access token and refresh-and-retry once on 401. */
   auth?: boolean;
+  /** Read the body as a Blob (e.g. audio) instead of JSON; `schema` is ignored. */
+  blob?: boolean;
 }
 
 export type ApiRequest = <T>(path: string, opts?: RequestOptions<T>) => Promise<T>;
@@ -121,8 +123,9 @@ export function createApiClient(options: ApiClientOptions) {
     });
   }
 
-  async function parse<T>(res: Response, schema?: ZodType<T>): Promise<T> {
+  async function parse<T>(res: Response, schema?: ZodType<T>, blob = false): Promise<T> {
     if (!res.ok) throw await toApiError(res);
+    if (blob) return (await res.blob()) as T;
     if (!schema || res.status === 204) return undefined as T;
     return schema.parse(await res.json());
   }
@@ -175,7 +178,7 @@ export function createApiClient(options: ApiClientOptions) {
       await refreshOnce();
       res = await send(path, { ...opts, auth });
     }
-    return parse(res, opts.schema);
+    return parse(res, opts.schema, opts.blob);
   }
 
   const id = encodeURIComponent;

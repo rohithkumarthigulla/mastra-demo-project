@@ -113,8 +113,14 @@ export class PendingActionClosedError extends ConflictError {
   }
 }
 
-export class ActionNotAvailableError extends DomainError {
-  constructor(message: string) {
-    super('action_not_available', message, 501);
+export class InvalidAudioError extends DomainError {
+  constructor(message = 'Send one audio recording as a multipart file field') {
+    super('invalid_audio', message);
+  }
+}
+
+export class AudioTooLargeError extends DomainError {
+  constructor() {
+    super('audio_too_large', 'The recording is too long', 413);
   }
 }

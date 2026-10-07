@@ -1,15 +1,19 @@
 import {
   blockReasonSchema,
   calendarDateSchema,
+  DECLINE_REASON_MAX,
   listingPricePerDaySchema,
   MAX_CALENDAR_DAYS,
+  rentalRequestStatusSchema,
   type BlockReason,
   type PendingActionType,
 } from '@ee/contracts';
+import { z } from 'zod';
 import { numberArg, stringArg, type Tool } from '../../ai/application';
 import type { AvailabilityService } from '../../availability/application';
 import type { EquipmentListingsService } from '../../equipment-listings/application';
 import type { FleetService } from '../../fleet/application';
+import type { RentalRequestsService } from '../../rental-requests/application';
 import type { ActionPayload } from '../domain';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -33,6 +37,7 @@ interface Deps {
   fleet: FleetService;
   availability: AvailabilityService;
   listings: EquipmentListingsService;
+  rentalRequests: RentalRequestsService;
 }
 
 /** Midnight at the start of `date` in the rental zone. */
@@ -46,7 +51,7 @@ export function startOfRentalDay(date: string): Date {
  * proposal; nothing changes until the supplier confirms it.
  */
 export function agentTools(deps: Deps, state: AgentToolState): Tool[] {
-  const { accountId, fleet, availability, listings } = deps;
+  const { accountId, fleet, availability, listings, rentalRequests } = deps;
 
   const propose = (type: PendingActionType, summary: string, args: Record<string, unknown>) => {
     if (state.proposal) return { error: 'Only one change can be proposed per reply.' };
@@ -145,13 +150,42 @@ export function agentTools(deps: Deps, state: AgentToolState): Tool[] {
     {
       definition: {
         name: 'list_rental_requests',
-        description: "List the supplier's incoming rental requests, quotes and bookings.",
-        parameters: { type: 'object', properties: {} },
+        description:
+          'List rental requests builders sent to the supplier, newest first. Defaults to PENDING ones; request ids are needed to reject one.',
+        parameters: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              description: 'PENDING, QUOTED, REJECTED, CANCELLED, EXPIRED or ACCEPTED',
+            },
+          },
+        },
       },
-      run: () =>
-        Promise.resolve({
-          error: 'Rental requests, quotes and bookings are not available to the assistant yet.',
-        }),
+      run: async (args) => {
+        const status = rentalRequestStatusSchema.safeParse(
+          (stringArg(args, 'status') ?? 'PENDING').toUpperCase(),
+        );
+        if (!status.success) return { error: 'Unknown request status.' };
+        const page = await rentalRequests.listIncoming(accountId, {
+          status: status.data,
+          limit: MAX_ROWS,
+          offset: 0,
+        });
+        return {
+          total: page.total,
+          requests: page.items.map((r) => ({
+            id: r.id,
+            status: r.status,
+            builder: r.builderName,
+            listing: r.listing.title,
+            startDate: r.startDate,
+            endDate: r.endDate,
+            days: r.days,
+            message: r.message,
+          })),
+        };
+      },
     },
     {
       definition: {
@@ -251,18 +285,32 @@ export function agentTools(deps: Deps, state: AgentToolState): Tool[] {
     {
       definition: {
         name: 'propose_reject_request',
-        description: 'Propose rejecting one rental request.',
+        description:
+          'Propose declining one pending rental request. The builder is told, with the reason if given. Does not change anything until confirmed.',
         parameters: {
           type: 'object',
-          properties: { requestId: { type: 'string', description: 'Rental request id' } },
+          properties: {
+            requestId: { type: 'string', description: 'Request id from list_rental_requests' },
+            reason: { type: 'string', description: 'Optional short reason shown to the builder' },
+          },
           required: ['requestId'],
         },
       },
-      run: (args) => {
-        const requestId = stringArg(args, 'requestId');
-        if (!requestId) return Promise.resolve({ error: 'requestId is required.' });
-        return Promise.resolve(
-          propose('REJECT_REQUEST', `Reject rental request ${requestId}.`, { requestId }),
+      run: async (args) => {
+        const reason = stringArg(args, 'reason')?.trim() || undefined;
+        if (reason && reason.length > DECLINE_REASON_MAX) {
+          return { error: `Keep the reason under ${DECLINE_REASON_MAX} characters.` };
+        }
+        const requestId = z.uuid().safeParse(stringArg(args, 'requestId')?.toLowerCase());
+        if (!requestId.success) return { error: 'Use a request id from list_rental_requests.' };
+        const request = await rentalRequests.getFor('SUPPLIER', accountId, requestId.data);
+        if (request.status !== 'PENDING') {
+          return { error: `That request is already ${request.status.toLowerCase()}.` };
+        }
+        return propose(
+          'REJECT_REQUEST',
+          `Decline ${request.builderName}'s request for "${request.listing.title}" from ${request.startDate} to ${request.endDate}${reason ? ` (reason: ${reason})` : ''}.`,
+          reason ? { requestId: request.id, reason } : { requestId: request.id },
         );
       },
     },

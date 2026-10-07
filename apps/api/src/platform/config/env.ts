@@ -31,6 +31,13 @@ export const envSchema = z.object({
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
   /** `fake` is a deterministic offline provider for tests and local demos. */
   AI_PROVIDER: z.enum(['gemini', 'fake']).default('gemini'),
+  /** Sarvam AI key for the supplier agent's voice. Without it, voice is hidden. */
+  SARVAM_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  /** `fake` is a deterministic offline speech provider for tests and local demos. */
+  SPEECH_PROVIDER: z.enum(['sarvam', 'fake']).default('sarvam'),
 });
 
 export type Env = z.infer<typeof envSchema>;

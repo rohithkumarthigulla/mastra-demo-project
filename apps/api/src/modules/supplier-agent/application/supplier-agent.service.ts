@@ -1,7 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  agentLanguage,
+  DEFAULT_AGENT_LANGUAGE,
+  resolveReplyLanguage,
   todayInRentalZone,
+  type AgentActivity,
   type AgentConversationDetailDto,
+  type AgentLanguage,
+  type AgentProgressDto,
   type AgentMessageDto,
   type AgentReplyDto,
   type CitationDto,
@@ -10,15 +16,16 @@ import {
   type CreateConversationRequest,
   type ListConversationsQuery,
   type PendingActionDto,
+  type SendAgentMessageRequest,
 } from '@ee/contracts';
 import { CLOCK, type Clock } from '../../../platform/auth';
-import { runToolLoop } from '../../ai/application';
+import { runToolLoop, type Tool } from '../../ai/application';
 import { AI_PROVIDER, type AiProvider, type ChatTurn } from '../../ai/domain';
 import { AvailabilityService } from '../../availability/application';
 import { EquipmentListingsService } from '../../equipment-listings/application';
 import { FleetService } from '../../fleet/application';
+import { RentalRequestsService } from '../../rental-requests/application';
 import {
-  ActionNotAvailableError,
   AGENT_REPOSITORY,
   AgentConversationNotFoundError,
   KNOWLEDGE_REPOSITORY,
@@ -44,9 +51,23 @@ const SUPPLIER_AUDIENCES = ['SUPPLIER', 'ALL'];
 const SYSTEM_PROMPT = `You help equipment suppliers in India run their rental business on the platform.
 Rules:
 - Answer how-to questions only from the platform guide excerpts below. If they do not cover it, say so.
-- Use the read tools to look at the supplier's own machines, yards, listings and availability. Never guess ids, dates or prices.
+- Use the read tools to look at the supplier's own machines, yards, listings, availability and incoming rental requests. Never guess ids, dates or prices.
 - You cannot change anything yourself. To change something, call one propose_* tool; the supplier then confirms or cancels it.
 - Keep replies short and plain.`;
+
+/** What the supplier sees while each tool runs; tool names never leave the server. */
+const TOOL_ACTIVITY: Record<string, AgentActivity> = {
+  list_yards: 'CHECKING_FLEET',
+  list_units: 'CHECKING_FLEET',
+  get_availability: 'CHECKING_AVAILABILITY',
+  list_listings: 'CHECKING_LISTINGS',
+  list_rental_requests: 'CHECKING_REQUESTS',
+};
+
+function languageRule(language: AgentLanguage): string {
+  const { name, nativeName } = agentLanguage(language);
+  return `Reply language: ${language}. Always reply in ${name} (${nativeName}), even though the guide excerpts are in English. Keep ids, dates and amounts as they are.`;
+}
 
 @Injectable()
 export class SupplierAgentService {
@@ -58,7 +79,11 @@ export class SupplierAgentService {
     private readonly fleet: FleetService,
     private readonly availability: AvailabilityService,
     private readonly listings: EquipmentListingsService,
+    private readonly rentalRequests: RentalRequestsService,
   ) {}
+
+  /** In-flight activity per conversation, for the progress poll while a reply is prepared. */
+  private readonly activity = new Map<string, AgentActivity>();
 
   async create(accountId: string, input: CreateConversationRequest): Promise<ConversationDto> {
     const profileId = await this.fleet.requireProfile(accountId);
@@ -95,11 +120,40 @@ export class SupplierAgentService {
     };
   }
 
-  async send(accountId: string, id: string, content: string): Promise<AgentReplyDto> {
+  async progress(accountId: string, id: string): Promise<AgentProgressDto> {
+    await this.requireConversation(accountId, id);
+    return { activity: this.activity.get(id) ?? null };
+  }
+
+  async send(
+    accountId: string,
+    id: string,
+    input: SendAgentMessageRequest,
+  ): Promise<AgentReplyDto> {
     const conversation = await this.requireConversation(accountId, id);
+    try {
+      return await this.answer(conversation, accountId, input);
+    } finally {
+      this.activity.delete(id);
+    }
+  }
+
+  private async answer(
+    conversation: StoredAgentConversation,
+    accountId: string,
+    input: SendAgentMessageRequest,
+  ): Promise<AgentReplyDto> {
+    const { id } = conversation;
+    const { content } = input;
+    const language = resolveReplyLanguage({
+      spoken: input.spokenLanguage,
+      text: content,
+      selected: input.language ?? DEFAULT_AGENT_LANGUAGE,
+    });
     const history = await this.repo.listMessages(id);
     const now = this.clock.now();
 
+    this.activity.set(id, 'READING_GUIDES');
     const [queryEmbedding] = await this.ai.embed([content], 'query');
     const chunks = await this.knowledge.searchChunks(
       queryEmbedding!,
@@ -109,7 +163,7 @@ export class SupplierAgentService {
 
     const state = new AgentToolState();
     const result = await runToolLoop(this.ai, {
-      system: `${SYSTEM_PROMPT}\nToday is ${todayInRentalZone(now)}.\n\nPlatform guide excerpts:\n${excerpts(chunks)}`,
+      system: `${SYSTEM_PROMPT}\n${languageRule(language)}\nToday is ${todayInRentalZone(now)}.\n\nPlatform guide excerpts:\n${excerpts(chunks)}`,
       history: [...history.slice(-HISTORY_LIMIT).map(toTurn), { role: 'user', text: content }],
       tools: agentTools(
         {
@@ -118,10 +172,19 @@ export class SupplierAgentService {
           fleet: this.fleet,
           availability: this.availability,
           listings: this.listings,
+          rentalRequests: this.rentalRequests,
         },
         state,
-      ),
+      ).map((tool) => this.tracked(id, tool)),
     });
+
+    if (state.proposal && language !== 'en') {
+      this.activity.set(id, 'PREPARING_CHANGE');
+      state.proposal.payload.summary = await this.translate(
+        state.proposal.payload.summary,
+        language,
+      );
+    }
 
     const citations = state.proposal ? [] : citationsFrom(chunks);
     const action = state.proposal
@@ -156,7 +219,31 @@ export class SupplierAgentService {
       message: toMessage(reply!),
       citations,
       pendingAction: action ? toAction(action, now) : null,
+      language,
     };
+  }
+
+  private tracked(conversationId: string, tool: Tool): Tool {
+    const activity = tool.definition.name.startsWith('propose_')
+      ? 'PREPARING_CHANGE'
+      : (TOOL_ACTIVITY[tool.definition.name] ?? 'READING_GUIDES');
+    return {
+      definition: tool.definition,
+      run: (args) => {
+        this.activity.set(conversationId, activity);
+        return tool.run(args);
+      },
+    };
+  }
+
+  /** The confirm card shows the summary in the reply language; the payload args stay as-is. */
+  private async translate(text: string, language: AgentLanguage): Promise<string> {
+    const reply = await this.ai.chat({
+      system: `Translate the user's text into ${agentLanguage(language).name}. ${languageRule(language)} Answer with the translation only.`,
+      messages: [{ role: 'user', text }],
+      tools: [],
+    });
+    return reply.text.trim() || text;
   }
 
   /**
@@ -175,11 +262,8 @@ export class SupplierAgentService {
     try {
       await this.execute(accountId, action);
     } catch (error) {
-      // Not-yet-available actions stay confirmed (the supplier did confirm); real failures
-      // reopen the action so the supplier can fix the cause and try again before it expires.
-      if (!(error instanceof ActionNotAvailableError)) {
-        await this.repo.transitionAction(id, 'CONFIRMED', 'PENDING', this.clock.now());
-      }
+      // Reopen the action so the supplier can fix the cause and try again before it expires.
+      await this.repo.transitionAction(id, 'CONFIRMED', 'PENDING', this.clock.now());
       throw error;
     }
     return toAction({ ...action, status: 'CONFIRMED' }, now);
@@ -215,9 +299,12 @@ export class SupplierAgentService {
         });
         return;
       case 'REJECT_REQUEST':
-        throw new ActionNotAvailableError(
-          'Rejecting rental requests through the assistant is not available yet.',
+        await this.rentalRequests.reject(
+          accountId,
+          String(args.requestId),
+          typeof args.reason === 'string' ? { reason: args.reason } : {},
         );
+        return;
     }
   }
 

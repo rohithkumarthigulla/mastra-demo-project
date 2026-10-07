@@ -1,7 +1,14 @@
 import type { Env } from '../../../platform/config';
-import { AssistantNotConfiguredError, type AiProvider, type ChatResponse } from '../domain';
+import {
+  AssistantNotConfiguredError,
+  type AiProvider,
+  type ChatResponse,
+  type SpeechProvider,
+} from '../domain';
 import { FakeProvider } from './fake-provider';
+import { FakeSpeechProvider, UnconfiguredSpeechProvider } from './fake-speech';
 import { GeminiProvider } from './gemini-provider';
+import { SarvamSpeechProvider } from './sarvam-speech';
 
 /** Lets the API boot without a key; every assistant call answers 503. */
 export class UnconfiguredProvider implements AiProvider {
@@ -25,4 +32,10 @@ export function createAiProvider(env: Env): AiProvider {
     embeddingModel: env.GEMINI_EMBEDDING_MODEL,
     timeoutMs: env.AI_TIMEOUT_MS,
   });
+}
+
+export function createSpeechProvider(env: Env): SpeechProvider {
+  if (env.SPEECH_PROVIDER === 'fake') return new FakeSpeechProvider();
+  if (!env.SARVAM_API_KEY) return new UnconfiguredSpeechProvider();
+  return new SarvamSpeechProvider({ apiKey: env.SARVAM_API_KEY, timeoutMs: env.AI_TIMEOUT_MS });
 }

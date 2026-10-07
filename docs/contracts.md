@@ -325,14 +325,18 @@ Action types: `BLOCK_UNIT`, `LIFT_BLOCK`, `UPDATE_LISTING_PRICE`, `REJECT_REQUES
 | `PENDING` | `CANCELLED` | Supplier `POST /actions/:id/cancel`  |
 | `PENDING` | `EXPIRED`   | `expiresAt` passes                   |
 
-| Method | Path                                         | Role | Body                                |
-| ------ | -------------------------------------------- | ---- | ----------------------------------- |
-| POST   | `/supplier-agent/conversations`              | S    | `{ title? }`                        |
-| GET    | `/supplier-agent/conversations`              | S    | paging                              |
-| GET    | `/supplier-agent/conversations/:id`          | S    | (with messages and pending actions) |
-| POST   | `/supplier-agent/conversations/:id/messages` | S    | `{ content }` (≤ 4000)              |
-| POST   | `/supplier-agent/actions/:id/confirm`        | S    |                                     |
-| POST   | `/supplier-agent/actions/:id/cancel`         | S    |                                     |
+| Method | Path                                         | Role | Body                                      |
+| ------ | -------------------------------------------- | ---- | ----------------------------------------- |
+| POST   | `/supplier-agent/conversations`              | S    | `{ title? }`                              |
+| GET    | `/supplier-agent/conversations`              | S    | paging                                    |
+| GET    | `/supplier-agent/conversations/:id`          | S    | (with messages and pending actions)       |
+| POST   | `/supplier-agent/conversations/:id/messages` | S    | `{ content, language?, spokenLanguage? }` |
+| GET    | `/supplier-agent/conversations/:id/progress` | S    | → `{ activity }`                          |
+| POST   | `/supplier-agent/actions/:id/confirm`        | S    |                                           |
+| POST   | `/supplier-agent/actions/:id/cancel`         | S    |                                           |
+| GET    | `/supplier-agent/speech`                     | S    | → `{ enabled }`                           |
+| POST   | `/supplier-agent/speech/transcribe`          | S    | multipart `file`; `?language=`            |
+| GET    | `/supplier-agent/speech/audio`               | S    | `?text=&language=` → WAV                  |
 
 Rules:
 
@@ -343,7 +347,10 @@ Rules:
   rules).
 - Only `PENDING`, unexpired actions in the supplier's own conversations can be
   confirmed or cancelled.
-- The reply is `{ message, citations[], pendingAction }`. Citations are the
+- Languages: `en`, `hi`, `mr`, `te`, `ta`, `kn`, `ml`, `bn`. The reply language is the
+  spoken language, else the script of the message (the picked language wins within the
+  same script), else the picked language; see `resolveReplyLanguage`.
+- The reply is `{ message, citations[], pendingAction, language }`. Citations are the
   `{ documentId, title, topic }` of the knowledge documents used, and the cited ids are
   stored on the message.
 - Embeddings have 768 dimensions (`KNOWLEDGE_EMBEDDING_DIMENSIONS`). Document `path` is
