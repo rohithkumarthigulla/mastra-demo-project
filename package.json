@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "pnpm -r run test",
+    "test": "pnpm -r run test && pnpm run test:docs",
+    "test:docs": "node --test scripts/check-knowledge.test.mjs",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down"
   },
