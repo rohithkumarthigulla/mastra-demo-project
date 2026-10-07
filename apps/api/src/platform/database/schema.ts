@@ -1,6 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import {
   check,
+  date,
   doublePrecision,
   index,
   pgEnum,
@@ -135,6 +136,41 @@ export const equipmentModels = pgTable(
   ],
 );
 
+export const specificationSourceType = pgEnum('specification_source_type', [
+  'MANUFACTURER',
+  'LICENSED_DATASET',
+  'APPROVED_PUBLIC_SOURCE',
+  'INTERNAL_VERIFICATION',
+  'TEST_FIXTURE',
+]);
+export const verificationStatus = pgEnum('verification_status', [
+  'VERIFIED',
+  'REVIEW_REQUIRED',
+  'UNKNOWN',
+  'DEPRECATED',
+]);
+
+export const specificationSources = pgTable(
+  'specification_sources',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sourceType: specificationSourceType('source_type').notNull(),
+    sourceName: text('source_name').notNull(),
+    referenceUrl: text('reference_url'),
+    documentName: text('document_name'),
+    retrievedAt: date('retrieved_at'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('specification_sources_type_name_lower_idx').on(
+      t.sourceType,
+      sql`lower(${t.sourceName})`,
+    ),
+  ],
+);
+
 export const equipmentSpecifications = pgTable(
   'equipment_specifications',
   {
@@ -152,12 +188,32 @@ export const equipmentSpecifications = pgTable(
     textValue: text('text_value'),
     normalizedMin: doublePrecision('normalized_min'),
     normalizedMax: doublePrecision('normalized_max'),
+    verificationStatus: verificationStatus('verification_status').notNull(),
+    sourceId: uuid('source_id').references(() => specificationSources.id, {
+      onDelete: 'restrict',
+    }),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     unique('equipment_specifications_model_definition_unique').on(t.modelId, t.definitionId),
     index('equipment_specifications_definition_id_idx').on(t.definitionId),
+    index('equipment_specifications_source_id_idx').on(t.sourceId),
+    // An empty value is UNKNOWN, and UNKNOWN is only for an empty value.
+    check(
+      'equipment_specifications_unknown_chk',
+      sql`(${t.verificationStatus} = 'UNKNOWN') = (${t.numericValue} IS NULL AND ${t.minValue} IS NULL AND ${t.maxValue} IS NULL AND ${t.textValue} IS NULL)`,
+    ),
+    // VERIFIED needs a source; a TEST_FIXTURE source is rejected by a trigger in the migration.
+    check(
+      'equipment_specifications_verified_chk',
+      sql`${t.verificationStatus} <> 'VERIFIED' OR ${t.sourceId} IS NOT NULL`,
+    ),
+    check(
+      'equipment_specifications_verified_at_chk',
+      sql`(${t.verifiedAt} IS NOT NULL) = (${t.verificationStatus} = 'VERIFIED')`,
+    ),
     // Exactly one shape: single, range, text, or empty (unknown).
     check(
       'equipment_specifications_shape_chk',

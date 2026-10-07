@@ -5,6 +5,7 @@ import type {
   EquipmentSpecificationDto,
   ManufacturerDto,
   SpecificationDefinitionDto,
+  SpecificationSourceDto,
 } from '@ee/contracts';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../../../platform/http';
@@ -15,6 +16,7 @@ import type {
   EquipmentSpecification,
   Manufacturer,
   SpecificationDefinition,
+  SpecificationSource,
 } from '../domain';
 
 /** Rejects malformed ids with 400 before they reach Postgres's uuid parser. */
@@ -44,6 +46,19 @@ export function definitionToDto(row: SpecificationDefinition): SpecificationDefi
   };
 }
 
+export function sourceToDto(row: SpecificationSource): SpecificationSourceDto {
+  return {
+    id: row.id,
+    sourceType: row.sourceType,
+    sourceName: row.sourceName,
+    referenceUrl: row.referenceUrl,
+    documentName: row.documentName,
+    retrievedAt: row.retrievedAt,
+    notes: row.notes,
+    ...timestamps(row),
+  };
+}
+
 export function modelToDto(row: EquipmentModel): EquipmentModelDto {
   return {
     id: row.id,
@@ -68,6 +83,14 @@ export function specificationToDto(row: EquipmentSpecification): EquipmentSpecif
     textValue: row.textValue,
     normalizedMin: row.normalizedMin,
     normalizedMax: row.normalizedMax,
+    verificationStatus: row.verificationStatus,
+    verifiedAt: row.verifiedAt?.toISOString() ?? null,
+    source: row.source && {
+      id: row.source.id,
+      sourceType: row.source.sourceType,
+      sourceName: row.source.sourceName,
+      referenceUrl: row.source.referenceUrl,
+    },
     ...timestamps(row),
   };
 }

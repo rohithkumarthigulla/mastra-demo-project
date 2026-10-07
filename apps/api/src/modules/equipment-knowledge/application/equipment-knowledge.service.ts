@@ -5,6 +5,7 @@ import type {
   CreateEquipmentSpecificationRequest,
   CreateManufacturerRequest,
   CreateSpecificationDefinitionRequest,
+  CreateSpecificationSourceRequest,
   ListEquipmentModelsQuery,
   UpdateEquipmentSpecificationRequest,
 } from '@ee/contracts';
@@ -20,6 +21,8 @@ import {
   ModelExistsError,
   ModelNotFoundError,
   resolveSpecificationValue,
+  resolveVerification,
+  SourceNotFoundError,
   SpecificationNotFoundError,
   type EquipmentCategory,
   type EquipmentKnowledgeRepository,
@@ -28,7 +31,10 @@ import {
   type EquipmentSpecification,
   type Manufacturer,
   type SpecificationDefinition,
+  type SpecificationSource,
 } from '../domain';
+
+const VALUE_KEYS = ['numericValue', 'minValue', 'maxValue', 'unit', 'textValue'] as const;
 
 /** Pre-checks give clean 404/409s; the database constraints still cover concurrent writes. */
 @Injectable()
@@ -84,6 +90,21 @@ export class EquipmentKnowledgeService {
     return this.repo.findDefinitionByCode(code);
   }
 
+  listSources(): Promise<SpecificationSource[]> {
+    return this.repo.listSources();
+  }
+
+  createSource(input: CreateSpecificationSourceRequest): Promise<SpecificationSource> {
+    return this.repo.createSource({
+      sourceType: input.sourceType,
+      sourceName: input.sourceName,
+      referenceUrl: input.referenceUrl ?? null,
+      documentName: input.documentName ?? null,
+      retrievedAt: input.retrievedAt ?? null,
+      notes: input.notes ?? null,
+    });
+  }
+
   listModels(page: ListEquipmentModelsQuery): Promise<{ items: EquipmentModel[]; total: number }> {
     return this.repo.listModels(page);
   }
@@ -123,10 +144,26 @@ export class EquipmentKnowledgeService {
     const definition = await this.repo.findDefinitionByCode(input.definitionCode);
     if (!definition) throw new DefinitionNotFoundError();
     const value = resolveSpecificationValue(definition, input);
-    return this.repo.createSpecification({ modelId, definitionId: definition.id, ...value });
+    const verification = resolveVerification({
+      value,
+      requested: input.verificationStatus,
+      source: await this.findSource(input.sourceId ?? null),
+      current: null,
+      valueChanged: true,
+      now: this.clock.now(),
+    });
+    return this.repo.createSpecification({
+      modelId,
+      definitionId: definition.id,
+      ...value,
+      ...verification,
+    });
   }
 
-  /** Provided keys replace the stored value (null clears it); omitted keys are kept. */
+  /**
+   * Provided keys replace the stored value (null clears it); omitted keys are kept.
+   * Changing the value without sending a status re-defaults it (REVIEW_REQUIRED or UNKNOWN).
+   */
   async updateSpecification(
     modelId: string,
     specificationId: string,
@@ -144,13 +181,35 @@ export class EquipmentKnowledgeService {
       unit: current.unit,
       textValue: current.textValue,
     };
-    for (const key of Object.keys(merged) as (keyof typeof merged)[]) {
+    for (const key of VALUE_KEYS) {
       if (patch[key] !== undefined) Object.assign(merged, { [key]: patch[key] });
     }
 
     const value = resolveSpecificationValue(definition, merged);
-    const updated = await this.repo.updateSpecification(specificationId, value, this.clock.now());
+    const now = this.clock.now();
+    const verification = resolveVerification({
+      value,
+      requested: patch.verificationStatus,
+      source: await this.findSource(
+        patch.sourceId === undefined ? current.sourceId : patch.sourceId,
+      ),
+      current,
+      valueChanged: VALUE_KEYS.some((key) => value[key] !== current[key]),
+      now,
+    });
+    const updated = await this.repo.updateSpecification(
+      specificationId,
+      { ...value, ...verification },
+      now,
+    );
     if (!updated) throw new SpecificationNotFoundError();
     return updated;
+  }
+
+  private async findSource(id: string | null): Promise<SpecificationSource | null> {
+    if (id === null) return null;
+    const source = await this.repo.findSourceById(id);
+    if (!source) throw new SourceNotFoundError();
+    return source;
   }
 }

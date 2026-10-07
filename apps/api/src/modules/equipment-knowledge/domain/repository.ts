@@ -6,8 +6,10 @@ import type {
   EquipmentSpecification,
   Manufacturer,
   SpecificationDefinition,
+  SpecificationSource,
   SpecificationValue,
   SpecificationValueType,
+  SpecificationVerification,
 } from './entities';
 
 export const EQUIPMENT_KNOWLEDGE_REPOSITORY = Symbol('EQUIPMENT_KNOWLEDGE_REPOSITORY');
@@ -18,6 +20,13 @@ export interface EquipmentKnowledgeRepository {
   listCategories(): Promise<EquipmentCategory[]>;
   findCategoryById(id: string): Promise<EquipmentCategory | null>;
   findCategoryByCode(code: string): Promise<EquipmentCategory | null>;
+
+  createSource(
+    input: Omit<SpecificationSource, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<SpecificationSource>;
+  /** Ordered by source type, source name, id. */
+  listSources(): Promise<SpecificationSource[]>;
+  findSourceById(id: string): Promise<SpecificationSource | null>;
 
   /** Throws `ManufacturerExistsError` on a case-insensitive duplicate name. */
   createManufacturer(input: { name: string }): Promise<Manufacturer>;
@@ -53,7 +62,8 @@ export interface EquipmentKnowledgeRepository {
 
   /** Throws `SpecificationExistsError` if the model already has this definition. */
   createSpecification(
-    input: { modelId: string; definitionId: string } & SpecificationValue,
+    input: { modelId: string; definitionId: string } & SpecificationValue &
+      SpecificationVerification,
   ): Promise<EquipmentSpecification>;
   findSpecification(
     modelId: string,
@@ -61,7 +71,7 @@ export interface EquipmentKnowledgeRepository {
   ): Promise<EquipmentSpecification | null>;
   updateSpecification(
     specificationId: string,
-    value: SpecificationValue,
+    value: SpecificationValue & SpecificationVerification,
     updatedAt: Date,
   ): Promise<EquipmentSpecification | null>;
   /** Ordered by definition code. */

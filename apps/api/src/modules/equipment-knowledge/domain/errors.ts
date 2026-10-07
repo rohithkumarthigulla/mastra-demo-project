@@ -30,6 +30,12 @@ export class SpecificationExistsError extends ConflictError {
   }
 }
 
+export class SourceNotFoundError extends NotFoundError {
+  constructor() {
+    super('source_not_found', 'Specification source not found');
+  }
+}
+
 export class CategoryNotFoundError extends NotFoundError {
   constructor() {
     super('category_not_found', 'Equipment category not found');
@@ -81,5 +87,23 @@ export class InvalidSpecificationValueError extends DomainError {
 export class InvalidSpecificationRangeError extends DomainError {
   constructor() {
     super('invalid_specification_range', 'minValue must not be greater than maxValue');
+  }
+}
+
+export class InvalidVerificationStatusError extends DomainError {
+  constructor(message: string) {
+    super('invalid_verification_status', message);
+  }
+}
+
+export class VerificationSourceRequiredError extends DomainError {
+  constructor() {
+    super('verification_source_required', 'A VERIFIED value needs a source');
+  }
+}
+
+export class TestFixtureNotVerifiableError extends DomainError {
+  constructor() {
+    super('test_fixture_not_verifiable', 'A value from a TEST_FIXTURE source cannot be VERIFIED');
   }
 }
