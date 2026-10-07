@@ -5,6 +5,7 @@ import {
   date,
   doublePrecision,
   index,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -399,3 +400,42 @@ export const entityTypes = pgTable('entity_types', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const listingStatus = pgEnum('listing_status', ['DRAFT', 'ACTIVE', 'INACTIVE']);
+
+/**
+ * A supplier's rentable unit. The category is not stored: it always comes from the
+ * equipment model so the listing cannot disagree with the knowledge base.
+ */
+export const equipmentListings = pgTable(
+  'equipment_listings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    supplierProfileId: uuid('supplier_profile_id')
+      .notNull()
+      .references(() => supplierProfiles.id, { onDelete: 'cascade' }),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => equipmentModels.id, { onDelete: 'restrict' }),
+    cityId: uuid('city_id')
+      .notNull()
+      .references(() => cities.id, { onDelete: 'restrict' }),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    location: text('location').notNull(),
+    pricePerDay: numeric('price_per_day', { precision: 14, scale: 2 }).notNull(),
+    status: listingStatus('status').notNull().default('DRAFT'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'equipment_listings_price_chk',
+      sql`${t.pricePerDay} > 0 AND ${t.pricePerDay} <= 1000000`,
+    ),
+    index('equipment_listings_supplier_profile_id_idx').on(t.supplierProfileId),
+    index('equipment_listings_status_city_idx').on(t.status, t.cityId),
+    index('equipment_listings_status_created_at_idx').on(t.status, t.createdAt),
+    index('equipment_listings_model_id_idx').on(t.modelId),
+  ],
+);

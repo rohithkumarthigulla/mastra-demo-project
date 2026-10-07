@@ -181,6 +181,31 @@ ADMIN applies to the `POST`s only; every `GET` is public. `GET /equipment-models
 
 The seed adds 11 capabilities, 9 construction tasks and links of all four kinds; model and category links cite the `TEST_FIXTURE` source and stay `REVIEW_REQUIRED`. Tables are created by migration `0006`.
 
+## Listings
+
+A listing is a supplier's offer to rent out one piece of plant (`apps/api/src/modules/equipment-listings`, contracts in `packages/contracts/src/equipment-listing.ts`). It is separate from the knowledge base: the knowledge base describes what a model _is_ and is curated by admins; a listing says who rents one out, where and for how much, and points at a knowledge-base model. A listing has no category of its own — it always shows the category of its model.
+
+Supplier routes need the `SUPPLIER` role (401 signed out, 403 any other role) and a supplier profile (409 `supplier_profile_required`). A supplier only sees their own listings: another supplier's id returns 404 `listing_not_found`, as does a malformed id.
+
+| Endpoint                                 | Body                                                                      | Success                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `GET /supplier/listings`                 | query `status?`, `limit`, `offset`                                        | 200 `{ items, total, limit, offset }`, every status  |
+| `POST /supplier/listings`                | `modelId`, `cityGeoId`, `title`, `description`, `location`, `pricePerDay` | 201 listing, `DRAFT`                                 |
+| `GET /supplier/listings/:id`             |                                                                           | 200 listing                                          |
+| `PATCH /supplier/listings/:id`           | any of the create fields (at least one)                                   | 200 listing                                          |
+| `POST /supplier/listings/:id/publish`    |                                                                           | 200 listing, `ACTIVE`                                |
+| `POST /supplier/listings/:id/deactivate` |                                                                           | 200 listing, `INACTIVE`                              |
+| `GET /equipment-listings`                | query filters (below)                                                     | 200 `{ items, total, limit, offset }`, `ACTIVE` only |
+| `GET /equipment-listings/:id`            |                                                                           | 200 listing; 404 unless `ACTIVE`                     |
+
+- **Fields.** `title` 3–120 characters, `description` 10–2000, `location` (free text such as a site or area) 2–160, all trimmed. `pricePerDay` is rupees, more than 0 and at most 1,000,000 with up to 2 decimals. Violations return 400 `validation_failed`.
+- **References.** `cityGeoId` must be an enabled city (400 `invalid_city`); `modelId` must be an `ACTIVE` knowledge-base model (400 `invalid_model`).
+- **Status.** New listings are `DRAFT`. `publish` moves `DRAFT` or `INACTIVE` to `ACTIVE`; `deactivate` moves `ACTIVE` to `INACTIVE`. Anything else returns 409 `invalid_listing_transition`. Listings can be edited in any status.
+- **A listing** returns `id`, `status`, the fields above, `model` (`id`, `modelName`, `manufacturer`, `category`), `city` (`geoId`, `name`), `supplier` (`id`, `displayName`), `photos` in order, `coverPhotoUrl`, `createdAt` and `updatedAt`.
+- **Browse filters**, combined with AND: `city` (geo id), `category` (code), `modelId`, `manufacturer` (manufacturer id), `minPrice`, `maxPrice` (inclusive; `minPrice > maxPrice` is 400) and `q` (text in the title, regardless of case). Results are newest first; `limit` defaults to 20 and may be 1–100.
+
+Tables are created by migration `0008`.
+
 ## Reference data
 
 `GET /public/reference` is unauthenticated and returns `{ cities, entityTypes }` with `Cache-Control: public, max-age=300`, for sign-up forms and city pickers.
