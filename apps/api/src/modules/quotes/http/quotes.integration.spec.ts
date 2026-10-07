@@ -381,5 +381,10 @@ describe('quotes (database)', () => {
       expiredList.body.items.map((q) => q.id),
       [quote.id],
     );
+
+    const requote = await draft(listing, request.id);
+    assert.equal(requote.status, 201);
+    const [stored] = await h.db.select().from(quotes).where(eq(quotes.id, quote.id));
+    assert.equal(stored!.status, 'EXPIRED');
   });
 });

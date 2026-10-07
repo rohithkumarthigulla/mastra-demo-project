@@ -9,7 +9,7 @@ import {
   type RejectQuoteRequest,
   type UpdateQuoteRequest,
 } from '@ee/contracts';
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, inArray, lt, ne } from 'drizzle-orm';
 import { CLOCK, type Clock } from '../../../platform/auth';
 import {
   DB,
@@ -93,6 +93,17 @@ export class QuotesService {
         if (!request || request.supplierAccountId !== accountId) throw new QuoteNotFoundError();
         if (request.status !== 'PENDING') throw new QuoteRequestClosedError();
         if (body.equipmentUnitId) await assertUnitOnListing(tx, body.equipmentUnitId, request);
+        // A lapsed SENT quote still holds the request's open-quote slot; release it.
+        await tx
+          .update(quotes)
+          .set({ status: 'EXPIRED', updatedAt: now })
+          .where(
+            and(
+              eq(quotes.rentalRequestId, request.id),
+              eq(quotes.status, 'SENT'),
+              lt(quotes.validUntil, todayInRentalZone()),
+            ),
+          );
         return insertQuote(
           tx,
           {
