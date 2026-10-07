@@ -36,6 +36,11 @@ export default function BuilderHomeScreen() {
           onPress={() => router.push('/notifications')}
         />
         <Button
+          title="Equipment assistant"
+          variant="secondary"
+          onPress={() => router.push('/assistant')}
+        />
+        <Button
           title="Equipment catalogue"
           variant="secondary"
           onPress={() => router.push('/equipment')}

@@ -14,6 +14,7 @@ import {
 } from '../../api';
 import { useSession } from '../auth';
 import { queryKeys } from '../rental';
+import { draftToRequirementParams } from '../requirements';
 import { useTheme } from '../theme';
 import { Button } from '../ui';
 import { Bubble, ChatShell } from './ChatShell';
@@ -135,6 +136,7 @@ function ModelLink({ modelId }: { modelId: string }) {
 
 function DraftCard({ draft }: { draft: DraftRequirementDto }) {
   const theme = useTheme();
+  const router = useRouter();
   const when =
     draft.startDate && draft.endDate ? `${draft.startDate} to ${draft.endDate}` : 'Dates not set';
   return (
@@ -153,6 +155,12 @@ function DraftCard({ draft }: { draft: DraftRequirementDto }) {
         {`${draft.quantity} × ${draft.categoryCode} · ${when}`}
       </Text>
       {draft.notes ? <Text style={{ color: theme.colors.textMuted }}>{draft.notes}</Text> : null}
+      <Button
+        title="Create this requirement"
+        onPress={() =>
+          router.push({ pathname: '/requirements/new', params: draftToRequirementParams(draft) })
+        }
+      />
     </View>
   );
 }

@@ -1,6 +1,11 @@
 import { todayInRentalZone } from '@ee/contracts';
 import { describe, expect, it } from 'vitest';
-import { emptyRequirementForm, validateRequirementForm } from './requirementForm';
+import {
+  draftToRequirementParams,
+  emptyRequirementForm,
+  requirementFormFromParams,
+  validateRequirementForm,
+} from './requirementForm';
 
 const today = todayInRentalZone();
 const valid = {
@@ -67,6 +72,45 @@ describe('validateRequirementForm', () => {
         startDate: 'Start date can’t be in the past.',
         endDate: 'Enter a date as YYYY-MM-DD.',
       },
+    });
+  });
+});
+
+describe('assistant draft handoff', () => {
+  it('carries every draft field through route params into a valid form', () => {
+    const params = draftToRequirementParams({
+      title: 'Excavator for foundation work',
+      categoryCode: 'EXCAVATOR',
+      equipmentModelId: null,
+      constructionTaskCode: null,
+      cityGeoId: 'IN-MH-PUNE',
+      startDate: today,
+      endDate: today,
+      quantity: 2,
+      notes: 'Rocky soil',
+    });
+    const form = requirementFormFromParams(params, today);
+    expect(form).toMatchObject({ quantity: '2', notes: 'Rocky soil', cityGeoId: 'IN-MH-PUNE' });
+    expect(validateRequirementForm(form, today).ok).toBe(true);
+  });
+
+  it('leaves fields the assistant did not fill at their defaults', () => {
+    const params = draftToRequirementParams({
+      title: 'Crane',
+      categoryCode: 'CRANE',
+      equipmentModelId: null,
+      constructionTaskCode: null,
+      cityGeoId: null,
+      startDate: null,
+      endDate: null,
+      quantity: 1,
+      notes: null,
+    });
+    expect(params).toEqual({ title: 'Crane', categoryCode: 'CRANE', quantity: '1' });
+    expect(requirementFormFromParams(params, today)).toEqual({
+      ...emptyRequirementForm(today),
+      title: 'Crane',
+      categoryCode: 'CRANE',
     });
   });
 });
