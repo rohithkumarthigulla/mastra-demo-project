@@ -5,7 +5,18 @@
     "scheme": "equipmentexchange",
     "version": "0.0.0",
     "platforms": ["ios", "android", "web"],
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow EquipmentExchange to use your photos so you can add them to your equipment listings.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ],
     "web": {
       "output": "single"
     }

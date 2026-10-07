@@ -251,6 +251,24 @@ The Expo app (`apps/client`) signs people in and sends them to the area for thei
 - **Expired tokens.** The api client (`api/client.ts`) retries a request once after a 401 by refreshing. Concurrent 401s share one refresh, because each refresh rotates the token. If the refresh itself is rejected the user is signed out.
 - **Routing.** `features/auth/routing.ts` decides every redirect: signed-out users go to `/sign-in`, builders to `/home`, suppliers to `/supplier`, and suppliers without a company profile to `/onboarding` until they create one. Each role is kept out of the other's area. `ADMIN` accounts are signed out with a notice for now.
 
+### Screens
+
+| Route                                      | Who      | What                                                                                                                   |
+| ------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `/supplier/company`                        | supplier | edit the company display name                                                                                          |
+| `/supplier/fleet/listings`                 | supplier | own listings with a status filter                                                                                      |
+| `/supplier/fleet/listings/new`, `.../[id]` | supplier | create and edit a listing (model and city pickers), publish/deactivate, and add, reorder, set cover and delete photos  |
+| `/find`                                    | builder  | active listings, newest first, filtered by city, category, manufacturer, price range and text; filters live in the URL |
+| `/equipment`                               | builder  | equipment models by category and manufacturer                                                                          |
+| `/listing/[id]`, `/equipment/[id]`         | both     | listing detail with photos and model specifications; model detail with its active listings                             |
+
+- **Data.** Screens fetch with TanStack Query; after any create, edit, publish, deactivate or photo change the listing queries are invalidated so lists refresh by themselves.
+- **Validation.** The listing form is checked against the shared contract before any request, and per-field api errors are shown under the field. Api messages (for example a 409 on publish) are shown as-is.
+- **Photos.** Picked with `expo-image-picker` (photo library on iOS/Android, file picker on web). Each photo is checked for type, size (`MAX_LISTING_PHOTO_BYTES`, 8 MB, kept in step with the api's `LISTING_MEDIA_MAX_BYTES`) and the 10-photo limit, then uploaded one at a time so one bad photo doesn't stop the rest. Photos of draft and inactive listings are only served to the owner, so `AuthImage` sends the access token (a header on native, a fetched blob on web).
+- **Specifications.** Values are shown with their unit and marked verified or unverified; anything unknown shows "Not known", never a zero or a guess.
+- **Prices.** Shown in rupees with Indian digit grouping, e.g. `₹1,00,000.00`.
+- **Layout.** Screens adapt between phone and wide (≥ 768 px) layouts and follow the light/dark theme.
+
 ## Scripts
 
 | Script                              | What it does                                                                        |
