@@ -1,1 +1,1 @@
-export {};
+export { DatabaseHealthCheck } from './database-health';
