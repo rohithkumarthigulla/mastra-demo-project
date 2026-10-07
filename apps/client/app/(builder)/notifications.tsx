@@ -5,7 +5,6 @@ import { View } from 'react-native';
 import { formErrorsFromApi } from '../../features/auth';
 import { NotificationItem } from '../../features/notifications';
 import {
-  PreviewBanner,
   useMarkAllRead,
   useMarkRead,
   useNotificationFeed,
@@ -53,7 +52,6 @@ export default function NotificationsScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Notifications' }} />
-      <PreviewBanner />
       <Heading
         title="Notifications"
         subtitle={unread === 0 ? 'You’re all caught up' : `${unread} unread`}

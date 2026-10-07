@@ -1,5 +1,5 @@
 // Sample api responses for tests. Each one is parsed with its contract schema in
-// fixtures.test.ts, so they stay valid while the endpoints return 501.
+// fixtures.test.ts, so they stay in step with the contracts.
 import type {
   BookingDto,
   BookingStatus,

@@ -6,7 +6,6 @@ import { formErrorsFromApi } from '../../../features/auth';
 import {
   Card,
   formatDateRange,
-  PreviewBanner,
   REQUEST_STATUS,
   RequestStatusBadge,
   requestStage,
@@ -51,7 +50,6 @@ export default function MyRequestsScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'My requests' }} />
-      <PreviewBanner />
       <Heading title="My requests" subtitle="Equipment you’ve asked suppliers for" />
       <Chips
         label="Status"

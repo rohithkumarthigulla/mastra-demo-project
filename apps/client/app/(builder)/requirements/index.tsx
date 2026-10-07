@@ -6,7 +6,6 @@ import { formErrorsFromApi } from '../../../features/auth';
 import {
   Card,
   formatDateRange,
-  PreviewBanner,
   REQUIREMENT_STATUS,
   RequirementStatusBadge,
   useMyRequirements,
@@ -48,7 +47,6 @@ export default function MyRequirementsScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Requirements' }} />
-      <PreviewBanner />
       <Heading
         title="Requirements"
         subtitle="Describe what you need once and send it to several suppliers"

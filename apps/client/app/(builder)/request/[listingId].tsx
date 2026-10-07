@@ -7,7 +7,6 @@ import { formErrorsFromApi, useSession, type FieldErrors } from '../../../featur
 import {
   Field,
   formatDateRange,
-  PreviewBanner,
   useCreateRequest,
 } from '../../../features/progress';
 import {
@@ -80,13 +79,10 @@ export default function RequestListingScreen() {
 
     create.mutate(
       {
-        body: {
-          listingId,
-          startDate,
-          endDate,
-          ...(message.trim() ? { message: message.trim() } : {}),
-        },
-        listing: item,
+        listingId,
+        startDate,
+        endDate,
+        ...(message.trim() ? { message: message.trim() } : {}),
       },
       {
         onSuccess: (request) =>
@@ -103,7 +99,6 @@ export default function RequestListingScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Request equipment' }} />
-      <PreviewBanner />
       <Heading
         title={item.title}
         subtitle={`${formatDailyRate(item.pricePerDay)} · ${item.city.name}`}

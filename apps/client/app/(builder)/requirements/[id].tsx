@@ -14,7 +14,6 @@ import {
   Field,
   formatDateRange,
   formatDateTime,
-  PreviewBanner,
   QuoteStatusBadge,
   RequestStatusBadge,
   RequirementStatusBadge,
@@ -112,7 +111,6 @@ export default function RequirementDetailScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Requirement' }} />
-      <PreviewBanner />
       <Heading title={item.title} subtitle={`${category} · ${item.city.name}`} />
       <RequirementStatusBadge status={item.status} />
 

@@ -8,7 +8,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { formErrorsFromApi, type FieldErrors } from '../../../features/auth';
-import { PreviewBanner, useCreateRequirementAction } from '../../../features/progress';
+import { useCreateRequirementAction } from '../../../features/progress';
 import { useCategories, useCities } from '../../../features/rental';
 import {
   emptyRequirementForm,
@@ -52,9 +52,8 @@ export default function NewRequirementScreen() {
     }
     setErrors({});
     setFormError(undefined);
-    const cityName = cities.find((c) => c.geoId === result.value.cityGeoId)?.name ?? '';
     create.mutate(
-      { body: result.value, cityName },
+      result.value,
       {
         onSuccess: (created) =>
           router.replace({ pathname: '/requirements/[id]', params: { id: created.id } }),
@@ -70,7 +69,6 @@ export default function NewRequirementScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Post a requirement' }} />
-      <PreviewBanner />
       <Heading
         title="Post a requirement"
         subtitle="Saved as a draft. Next you pick which suppliers to send it to."

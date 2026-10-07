@@ -9,7 +9,6 @@ import {
   bookingStage,
   Card,
   formatDateRange,
-  PreviewBanner,
   StageBar,
   useMyBookings,
 } from '../../../features/progress';
@@ -50,7 +49,6 @@ export default function MyBookingsScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Bookings' }} />
-      <PreviewBanner />
       <Heading title="Bookings" subtitle="Machines booked from accepted quotes" />
       <Chips
         label="Status"
