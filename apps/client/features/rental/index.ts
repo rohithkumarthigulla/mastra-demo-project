@@ -18,3 +18,4 @@ export {
   useManufacturers,
   useSpecificationDefinitions,
 } from './useCatalogue';
+export { FilterBar } from './FilterBar';
