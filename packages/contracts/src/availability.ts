@@ -6,7 +6,6 @@ export type BlockReason = z.infer<typeof blockReasonSchema>;
 export const blockStatusSchema = z.enum(['ACTIVE', 'LIFTED']);
 export type BlockStatus = z.infer<typeof blockStatusSchema>;
 
-/** Only `BLOCKED` slots exist today; `BOOKED` slots arrive with bookings. */
 export const slotStateSchema = z.enum(['BLOCKED', 'BOOKED']);
 export type SlotState = z.infer<typeof slotStateSchema>;
 
@@ -55,14 +54,29 @@ export const maintenanceBlockSchema = z.object({
 });
 export type MaintenanceBlockDto = z.infer<typeof maintenanceBlockSchema>;
 
-export const calendarSlotSchema = z.object({
-  state: slotStateSchema,
+export const blockedSlotSchema = z.object({
+  state: z.literal('BLOCKED'),
   startAt: z.iso.datetime(),
   endAt: z.iso.datetime(),
   source: z.object({ type: z.literal('BLOCK'), id: z.uuid() }),
   reason: blockReasonSchema,
   note: z.string().nullable(),
 });
+export type BlockedSlotDto = z.infer<typeof blockedSlotSchema>;
+
+/** A unit taken by a CONFIRMED, OUT_FOR_DELIVERY or ON_RENT booking. */
+export const bookedSlotSchema = z.object({
+  state: z.literal('BOOKED'),
+  startAt: z.iso.datetime(),
+  endAt: z.iso.datetime(),
+  source: z.object({ type: z.literal('BOOKING'), id: z.uuid() }),
+});
+export type BookedSlotDto = z.infer<typeof bookedSlotSchema>;
+
+export const calendarSlotSchema = z.discriminatedUnion('state', [
+  blockedSlotSchema,
+  bookedSlotSchema,
+]);
 export type CalendarSlotDto = z.infer<typeof calendarSlotSchema>;
 
 export const unitCalendarSchema = z.object({
