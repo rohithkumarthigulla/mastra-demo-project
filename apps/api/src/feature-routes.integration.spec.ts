@@ -33,7 +33,7 @@ const FEATURE_PREFIXES = [
   '/equipment-assistant',
   '/supplier-agent',
 ];
-const IMPLEMENTED_PREFIXES = ['/equipment-assistant'];
+const IMPLEMENTED_PREFIXES = ['/equipment-assistant', '/supplier-agent'];
 
 interface RegisteredRoute {
   method: string;

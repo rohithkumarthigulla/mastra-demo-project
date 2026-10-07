@@ -13,18 +13,21 @@ import {
   type SendChatMessageRequest,
 } from '@ee/contracts';
 import { AuthGuard, CurrentUser, Roles, RolesGuard, type AuthUser } from '../../../platform/auth';
-import { IdPipe, notImplemented, ZodValidationPipe } from '../../../platform/http';
+import { IdPipe, ZodValidationPipe } from '../../../platform/http';
+import { SupplierAgentService } from '../application';
 
 @Controller('supplier-agent')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('SUPPLIER')
 export class SupplierAgentController {
+  constructor(private readonly agent: SupplierAgentService) {}
+
   @Post('conversations')
   create(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createConversationSchema)) body: CreateConversationRequest,
   ): Promise<ConversationDto> {
-    return notImplemented(user, body);
+    return this.agent.create(user.accountId, body);
   }
 
   @Get('conversations')
@@ -32,7 +35,7 @@ export class SupplierAgentController {
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(listConversationsQuerySchema)) query: ListConversationsQuery,
   ): Promise<ConversationPageDto> {
-    return notImplemented(user, query);
+    return this.agent.list(user.accountId, query);
   }
 
   @Get('conversations/:id')
@@ -40,7 +43,7 @@ export class SupplierAgentController {
     @CurrentUser() user: AuthUser,
     @Param('id', IdPipe) id: string,
   ): Promise<AgentConversationDetailDto> {
-    return notImplemented(user, id);
+    return this.agent.get(user.accountId, id);
   }
 
   /** The agent never changes data here; it may propose a pending action instead. */
@@ -50,7 +53,7 @@ export class SupplierAgentController {
     @Param('id', IdPipe) id: string,
     @Body(new ZodValidationPipe(sendChatMessageSchema)) body: SendChatMessageRequest,
   ): Promise<AgentReplyDto> {
-    return notImplemented(user, id, body);
+    return this.agent.send(user.accountId, id, body.content);
   }
 
   /** Applies the proposed change; the only way the agent alters supplier data. */
@@ -60,7 +63,7 @@ export class SupplierAgentController {
     @CurrentUser() user: AuthUser,
     @Param('id', IdPipe) id: string,
   ): Promise<PendingActionDto> {
-    return notImplemented(user, id);
+    return this.agent.confirm(user.accountId, id);
   }
 
   @Post('actions/:id/cancel')
@@ -69,6 +72,6 @@ export class SupplierAgentController {
     @CurrentUser() user: AuthUser,
     @Param('id', IdPipe) id: string,
   ): Promise<PendingActionDto> {
-    return notImplemented(user, id);
+    return this.agent.cancel(user.accountId, id);
   }
 }
