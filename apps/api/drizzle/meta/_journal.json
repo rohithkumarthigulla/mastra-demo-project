@@ -78,6 +78,13 @@
       "when": 1791366226579,
       "tag": "0010_fleet",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791366749789,
+      "tag": "0011_availability",
+      "breakpoints": true
     }
   ]
 }

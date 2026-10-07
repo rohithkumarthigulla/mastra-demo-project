@@ -15,3 +15,8 @@ export function findPgError(error: unknown, code: string): PgError | null {
 export function isUniqueViolation(error: unknown): boolean {
   return findPgError(error, '23505') !== null;
 }
+
+/** Postgres exclusion_violation (an EXCLUDE constraint such as overlapping ranges). */
+export function isExclusionViolation(error: unknown): boolean {
+  return findPgError(error, '23P01') !== null;
+}

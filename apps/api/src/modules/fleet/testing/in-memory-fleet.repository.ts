@@ -205,8 +205,11 @@ export class InMemoryFleetRepository implements FleetRepository {
   }
 
   /** Synchronous count, for plugging into the listings repository in tests. */
-  activeUnitsFor = (listingId: string): number =>
-    this.units.filter((u) => u.listingId === listingId && u.status === 'ACTIVE').length;
+  activeUnitsFor = (listingId: string): number => this.activeUnitIdsFor(listingId).length;
+
+  /** For plugging into the availability repository in tests. */
+  activeUnitIdsFor = (listingId: string): string[] =>
+    this.units.filter((u) => u.listingId === listingId && u.status === 'ACTIVE').map((u) => u.id);
 
   private assertYardNameFree(supplierProfileId: string, name: string, exceptId?: string): void {
     const taken = this.yards.some(

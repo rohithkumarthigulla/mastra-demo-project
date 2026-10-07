@@ -569,3 +569,36 @@ export const assetIdentifiers = pgTable(
     ),
   ],
 );
+
+export const blockReason = pgEnum('block_reason', ['MAINTENANCE', 'TRANSPORT', 'HELD_BACK']);
+export const blockStatus = pgEnum('block_status', ['ACTIVE', 'LIFTED']);
+
+/**
+ * Overlap between ACTIVE blocks of one unit is prevented by the
+ * `maintenance_blocks_no_overlap` EXCLUDE constraint (btree_gist), added by hand
+ * in drizzle/0011_availability.sql because Drizzle cannot model it.
+ */
+export const maintenanceBlocks = pgTable(
+  'maintenance_blocks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    unitId: uuid('unit_id')
+      .notNull()
+      .references(() => equipmentUnits.id, { onDelete: 'cascade' }),
+    reason: blockReason('reason').notNull(),
+    status: blockStatus('status').notNull().default('ACTIVE'),
+    startAt: timestamp('start_at', { withTimezone: true }).notNull(),
+    endAt: timestamp('end_at', { withTimezone: true }).notNull(),
+    note: text('note'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('maintenance_blocks_range_chk', sql`${t.endAt} > ${t.startAt}`),
+    check('maintenance_blocks_note_chk', sql`${t.note} IS NULL OR char_length(${t.note}) <= 500`),
+    index('maintenance_blocks_unit_status_idx').on(t.unitId, t.status),
+  ],
+);

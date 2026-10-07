@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Module } from '@nestjs/common';
+import { Module, type Provider, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -54,7 +54,13 @@ export async function closeFleetApp(): Promise<void> {
   app = undefined;
 }
 
-export async function createFleetApp() {
+/** Lets other modules' specs (e.g. availability) mount their controllers on top of fleet. */
+export interface FleetAppExtension {
+  controllers?: Type[];
+  providers?: (repo: InMemoryFleetRepository) => Provider[];
+}
+
+export async function createFleetApp(extension: FleetAppExtension = {}) {
   let now = new Date('2026-01-01T00:00:00Z');
   const clock: Clock = { now: () => now };
   const repo = new InMemoryFleetRepository();
@@ -62,8 +68,9 @@ export async function createFleetApp() {
 
   @Module({
     imports: [ConfigModule.forRoot(env), JwtModule.register({ secret: env.JWT_SECRET })],
-    controllers: [FleetYardsController, FleetUnitsController],
+    controllers: [FleetYardsController, FleetUnitsController, ...(extension.controllers ?? [])],
     providers: [
+      ...(extension.providers?.(repo) ?? []),
       FleetService,
       TokenService,
       AuthGuard,
@@ -124,5 +131,19 @@ export async function createFleetApp() {
     return res.json<{ id: string; status: string }>();
   }
 
-  return { request, tokenFor, supplierA, supplierB, createYard, createUnit, repo };
+  const setNow = (instant: Date) => {
+    now = instant;
+  };
+
+  return {
+    app: server,
+    request,
+    tokenFor,
+    supplierA,
+    supplierB,
+    createYard,
+    createUnit,
+    repo,
+    setNow,
+  };
 }

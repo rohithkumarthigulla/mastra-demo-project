@@ -1,3 +1,4 @@
+export * from './availability.js';
 export * from './accounts.js';
 export * from './equipment-knowledge.js';
 export * from './equipment-listing.js';
