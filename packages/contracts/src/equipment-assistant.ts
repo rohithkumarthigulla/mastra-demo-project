@@ -46,7 +46,7 @@ export const draftRequirementSchema = z.object({
   categoryCode: z.string(),
   equipmentModelId: z.uuid().nullable(),
   constructionTaskCode: z.string().nullable(),
-  city: z.string().nullable(),
+  cityGeoId: z.string().nullable(),
   startDate: calendarDateSchema.nullable(),
   endDate: calendarDateSchema.nullable(),
   quantity: z.number().int(),

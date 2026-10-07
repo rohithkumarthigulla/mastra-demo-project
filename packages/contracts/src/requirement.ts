@@ -6,6 +6,7 @@ import {
   paginationQuery,
   withRentalDateRules,
 } from './common.js';
+import { knowledgeCodeSchema } from './equipment-knowledge.js';
 import { rateSchema } from './money.js';
 import { RENTAL_REQUEST_MESSAGE_MAX } from './rental-request.js';
 import {
@@ -23,10 +24,10 @@ export const REQUIREMENT_MAX_QUANTITY = 20;
 
 const requirementFields = {
   title: z.string().trim().min(REQUIREMENT_TITLE_MIN).max(REQUIREMENT_TITLE_MAX),
-  categoryCode: z.string().trim().min(1),
+  categoryCode: knowledgeCodeSchema,
   equipmentModelId: z.uuid().nullable(),
-  constructionTaskCode: z.string().trim().min(1).nullable(),
-  city: z.string().trim().min(1),
+  constructionTaskCode: knowledgeCodeSchema.nullable(),
+  cityGeoId: z.string().trim().min(1),
   startDate: calendarDateSchema,
   endDate: calendarDateSchema,
   quantity: z.number().int().min(1).max(REQUIREMENT_MAX_QUANTITY),
@@ -114,7 +115,7 @@ export const requirementSchema = z.object({
   categoryCode: z.string(),
   equipmentModelId: z.uuid().nullable(),
   constructionTaskCode: z.string().nullable(),
-  city: z.string(),
+  city: z.object({ geoId: z.string(), name: z.string() }),
   startDate: calendarDateSchema,
   endDate: calendarDateSchema,
   days: z.number().int(),
