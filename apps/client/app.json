@@ -29,7 +29,15 @@
         {
           "photosPermission": "Allow EquipmentExchange to use your photos so you can add them to your equipment listings.",
           "cameraPermission": false,
-          "microphonePermission": false
+          "microphonePermission": "Allow EquipmentExchange to use your microphone so you can talk to the assistant. You can always type instead."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow EquipmentExchange to use your microphone so you can talk to the assistant. You can always type instead.",
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
         }
       ]
     ],

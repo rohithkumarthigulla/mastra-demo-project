@@ -11,7 +11,8 @@ import { normalize } from './vector';
 /**
  * Deterministic stand-in for tests and keyless local runs. Embeddings are hashed bags of
  * words, so texts that share words are close. Chat follows small keyword scripts over the
- * tools it is offered and only ever answers from tool results.
+ * tools it is offered and only ever answers from tool results. Instead of translating, it
+ * tags non-English replies with the language code (`[hi] …`).
  */
 export class FakeProvider implements AiProvider {
   readonly embeddingModel = 'fake-hash-768';
@@ -36,7 +37,15 @@ export class FakeProvider implements AiProvider {
       const args = step.when(ctx);
       if (args) return Promise.resolve({ text: '', toolCalls: [{ name: step.tool, args }] });
     }
-    return Promise.resolve({ text: finalText(ctx, request), toolCalls: [] });
+    const language = /Reply language: ([a-z]{2})\./.exec(request.system)?.[1] ?? 'en';
+    if (request.system.startsWith('Translate ')) {
+      return Promise.resolve({ text: `[${language}] ${userText}`, toolCalls: [] });
+    }
+    const text = finalText(ctx, request);
+    return Promise.resolve({
+      text: language === 'en' ? text : `[${language}] ${text}`,
+      toolCalls: [],
+    });
   }
 }
 
@@ -288,10 +297,21 @@ const SCRIPT: Step[] = [
     },
   },
   {
+    tool: 'list_rental_requests',
+    when: (ctx) => (/\b(reject|decline|requests?)\b/.test(ctx.text) ? {} : null),
+  },
+  {
     tool: 'propose_reject_request',
     when: (ctx) => {
+      if (!/reject|decline/.test(ctx.text)) return null;
       const id = UUID.exec(ctx.raw)?.[0];
-      return /reject|decline/.test(ctx.text) && id ? { requestId: id } : null;
+      const requests =
+        (ctx.result('list_rental_requests') as { requests?: { id: string; builder: string }[] })
+          ?.requests ?? [];
+      const match = id ? { id } : requests.find((r) => ctx.text.includes(r.builder.toLowerCase()));
+      if (!match) return null;
+      const reason = /because (.+?)[.!]?$/i.exec(ctx.raw)?.[1];
+      return reason ? { requestId: match.id, reason } : { requestId: match.id };
     },
   },
 ];

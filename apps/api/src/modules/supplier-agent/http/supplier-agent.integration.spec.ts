@@ -1,9 +1,27 @@
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
-import type { AgentConversationDetailDto, AgentReplyDto, PendingActionDto } from '@ee/contracts';
-import { AI_PROVIDER, type AiProvider } from '../../ai/domain';
-import { FakeProvider, UnconfiguredProvider } from '../../ai/infrastructure';
+import type {
+  AgentConversationDetailDto,
+  AgentProgressDto,
+  AgentReplyDto,
+  PendingActionDto,
+  SendAgentMessageRequest,
+  SpeechStatusDto,
+  TranscriptionDto,
+} from '@ee/contracts';
+import {
+  AI_PROVIDER,
+  SPEECH_PROVIDER,
+  type AiProvider,
+  type SpeechProvider,
+} from '../../ai/domain';
+import {
+  FakeProvider,
+  FakeSpeechProvider,
+  UnconfiguredProvider,
+  UnconfiguredSpeechProvider,
+} from '../../ai/infrastructure';
 import { AvailabilityService } from '../../availability/application';
 import { AVAILABILITY_REPOSITORY } from '../../availability/domain';
 import { InMemoryAvailabilityRepository } from '../../availability/testing/in-memory-availability.repository';
@@ -17,7 +35,8 @@ import {
   SUPPLIER_A,
   SUPPLIER_B,
 } from '../../fleet/testing/fleet-test-app';
-import { ingestKnowledge, SupplierAgentService } from '../application';
+import { RentalRequestsService } from '../../rental-requests/application';
+import { AgentSpeechService, ingestKnowledge, SupplierAgentService } from '../application';
 import { AGENT_REPOSITORY, KNOWLEDGE_REPOSITORY } from '../domain';
 import { readKnowledgeFiles } from '../infrastructure/knowledge-files';
 import { InMemoryAgentRepository, InMemoryKnowledgeRepository } from '../testing';
@@ -28,7 +47,10 @@ const KNOWLEDGE_ROOT = resolve(__dirname, '../../../../../../docs/knowledge');
 const NEXT_MONDAY = '2026-01-04T18:30:00.000Z';
 const FOLLOWING_MONDAY = '2026-01-11T18:30:00.000Z';
 
-async function createAgentApp(ai: AiProvider = new FakeProvider()) {
+async function createAgentApp(
+  ai: AiProvider = new FakeProvider(),
+  speech: SpeechProvider = new FakeSpeechProvider(),
+) {
   const knowledge = new InMemoryKnowledgeRepository();
   await ingestKnowledge(knowledge, new FakeProvider(), await readKnowledgeFiles(KNOWLEDGE_ROOT));
   const agents = new InMemoryAgentRepository();
@@ -53,13 +75,17 @@ async function createAgentApp(ai: AiProvider = new FakeProvider()) {
       blocks = new InMemoryAvailabilityRepository(repo.activeUnitIdsFor);
       return [
         SupplierAgentService,
+        AgentSpeechService,
         AvailabilityService,
         EquipmentListingsService,
         { provide: AI_PROVIDER, useValue: ai },
+        { provide: SPEECH_PROVIDER, useValue: speech },
         { provide: AGENT_REPOSITORY, useValue: agents },
         { provide: KNOWLEDGE_REPOSITORY, useValue: knowledge },
         { provide: AVAILABILITY_REPOSITORY, useValue: blocks },
         { provide: EQUIPMENT_LISTING_REPOSITORY, useValue: listings },
+        // Rental requests need the real database; see supplier-agent.database.spec.ts.
+        { provide: RentalRequestsService, useValue: {} },
       ];
     },
   });
@@ -71,12 +97,17 @@ async function createAgentApp(ai: AiProvider = new FakeProvider()) {
     return res.json<{ id: string }>().id;
   }
 
-  async function say(token: string, conversationId: string, content: string) {
+  async function say(
+    token: string,
+    conversationId: string,
+    content: string,
+    options: Omit<SendAgentMessageRequest, 'content'> = {},
+  ) {
     const res = await fleet.request(
       'POST',
       `/supplier-agent/conversations/${conversationId}/messages`,
       token,
-      { content },
+      { content, ...options },
     );
     assert.equal(res.statusCode, 201, res.body);
     return res.json<AgentReplyDto>();
@@ -95,7 +126,28 @@ async function createAgentApp(ai: AiProvider = new FakeProvider()) {
     return lanes.flatMap((l) => l.blocks);
   }
 
-  return { ...fleet, agents, listings, conversation, say, activeUnit, blocksOf };
+  function transcribe(token: string, audio: string, query = '') {
+    const boundary = '----agent-speech-test';
+    const payload = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="speech.wav"\r\n` +
+          'Content-Type: audio/wav\r\n\r\n',
+      ),
+      Buffer.from(audio, 'utf8'),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    return fleet.app.inject({
+      method: 'POST',
+      url: `/supplier-agent/speech/transcribe${query}`,
+      payload,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
+    });
+  }
+
+  return { ...fleet, agents, listings, conversation, say, activeUnit, blocksOf, transcribe };
 }
 
 type AgentApp = Awaited<ReturnType<typeof createAgentApp>>;
@@ -217,22 +269,6 @@ describe('supplier agent', () => {
     assert.equal((await listings.getOwn(SUPPLIER_A, listingId)).pricePerDay, 12500);
   });
 
-  it('records a reject-request action but reports it is not available yet', async () => {
-    const app = await createAgentApp();
-    const id = await app.conversation(app.supplierA);
-
-    const reject = (
-      await app.say(app.supplierA, id, 'Reject request 5a0e7a64-1b0c-4c1e-9f5e-2f8b5d1d4c11')
-    ).pendingAction!;
-    assert.equal(reject.type, 'REJECT_REQUEST');
-
-    const res = await action(app, 'confirm', reject.id);
-    assert.equal(res.statusCode, 501);
-    assert.match(res.json<{ message: string }>().message, /not available yet/);
-    assert.equal(app.agents.actions.find((a) => a.id === reject.id)?.status, 'CONFIRMED');
-    assert.equal((await action(app, 'confirm', reject.id)).statusCode, 409);
-  });
-
   it("keeps each supplier's data and actions private", async () => {
     const app = await createAgentApp();
     await app.activeUnit();
@@ -262,6 +298,120 @@ describe('supplier agent', () => {
       listed.json<{ items: { id: string }[] }>().items.map((c) => c.id),
       [ownId],
     );
+  });
+
+  it('replies in the language decided by speech, script and the picker', async () => {
+    const app = await createAgentApp();
+    const id = await app.conversation(app.supplierA);
+
+    const english = await app.say(app.supplierA, id, 'How do I block a machine?');
+    assert.equal(english.language, 'en');
+    assert.doesNotMatch(english.message.content, /^\[/);
+
+    // Nothing typed settles the script, so the picker decides.
+    const picked = await app.say(app.supplierA, id, '12500?', { language: 'te' });
+    assert.equal(picked.language, 'te');
+    assert.match(picked.message.content, /^\[te\] /);
+
+    // Typed Devanagari with Marathi picked: same script, so the selection wins.
+    const sameScript = await app.say(app.supplierA, id, 'मशीन कैसे ब्लॉक करें?', {
+      language: 'mr',
+    });
+    assert.equal(sameScript.language, 'mr');
+
+    // Typed Latin with Telugu picked: a different script wins over the selection.
+    const otherScript = await app.say(app.supplierA, id, 'How do I block a machine?', {
+      language: 'te',
+    });
+    assert.equal(otherScript.language, 'en');
+
+    const spoken = await app.say(app.supplierA, id, 'How do I block a machine?', {
+      language: 'te',
+      spokenLanguage: 'ta',
+    });
+    assert.equal(spoken.language, 'ta');
+  });
+
+  it('shows the pending action summary in the reply language', async () => {
+    const app = await createAgentApp();
+    await app.activeUnit();
+    const id = await app.conversation(app.supplierA);
+
+    const reply = await app.say(app.supplierA, id, 'Block Big Digger next week for repairs', {
+      language: 'en',
+      spokenLanguage: 'hi',
+    });
+
+    assert.equal(reply.language, 'hi');
+    assert.match(reply.pendingAction!.summary, /^\[hi\] Block Big Digger/);
+  });
+
+  it('reports no activity when no reply is in flight', async () => {
+    const app = await createAgentApp();
+    const id = await app.conversation(app.supplierA);
+    const progress = (path: string, token = app.supplierA) => app.request('GET', path, token);
+
+    const res = await progress(`/supplier-agent/conversations/${id}/progress`);
+    assert.equal(res.statusCode, 200, res.body);
+    assert.deepEqual(res.json<AgentProgressDto>(), { activity: null });
+
+    const other = await progress(`/supplier-agent/conversations/${id}/progress`, app.supplierB);
+    assert.equal(other.statusCode, 404);
+  });
+
+  it('runs a spoken turn: speech in, an answer in the spoken language, speech out', async () => {
+    const app = await createAgentApp();
+    const id = await app.conversation(app.supplierA);
+
+    const status = await app.request('GET', '/supplier-agent/speech', app.supplierA);
+    assert.deepEqual(status.json<SpeechStatusDto>(), { enabled: true });
+
+    const heard = await app.transcribe(app.supplierA, 'hi-IN|मशीन कैसे ब्लॉक करें?');
+    assert.equal(heard.statusCode, 200, heard.body);
+    const transcript = heard.json<TranscriptionDto>();
+    assert.deepEqual(transcript, { text: 'मशीन कैसे ब्लॉक करें?', language: 'hi' });
+
+    const reply = await app.say(app.supplierA, id, transcript.text, {
+      language: 'en',
+      spokenLanguage: transcript.language ?? undefined,
+    });
+    assert.equal(reply.language, 'hi');
+
+    const audio = await app.request(
+      'GET',
+      `/supplier-agent/speech/audio?language=hi&text=${encodeURIComponent('नमस्ते')}`,
+      app.supplierA,
+    );
+    assert.equal(audio.statusCode, 200, audio.body);
+    assert.equal(audio.headers['content-type'], 'audio/wav');
+    assert.equal(audio.rawPayload.subarray(0, 4).toString('ascii'), 'RIFF');
+  });
+
+  it('uses the picked language as a hint and rejects a missing recording', async () => {
+    const app = await createAgentApp();
+
+    const hinted = await app.transcribe(app.supplierA, 'hello', '?language=ta');
+    assert.deepEqual(hinted.json<TranscriptionDto>(), { text: 'hello', language: 'ta' });
+
+    const empty = await app.request('POST', '/supplier-agent/speech/transcribe', app.supplierA, {});
+    assert.equal(empty.statusCode, 400);
+  });
+
+  it('switches voice off without a speech key', async () => {
+    const app = await createAgentApp(new FakeProvider(), new UnconfiguredSpeechProvider());
+
+    const status = await app.request('GET', '/supplier-agent/speech', app.supplierA);
+    assert.deepEqual(status.json<SpeechStatusDto>(), { enabled: false });
+
+    const heard = await app.transcribe(app.supplierA, 'hello');
+    assert.equal(heard.statusCode, 503);
+    assert.equal(heard.json<{ code: string }>().code, 'SPEECH_NOT_CONFIGURED');
+    const audio = await app.request(
+      'GET',
+      '/supplier-agent/speech/audio?language=en&text=hi',
+      app.supplierA,
+    );
+    assert.equal(audio.statusCode, 503);
   });
 
   it('returns 503 ASSISTANT_NOT_CONFIGURED without an AI key', async () => {

@@ -27,6 +27,11 @@ import {
   sendRequirementSchema,
   updateRequirementSchema,
 } from './requirement.js';
+import {
+  sendAgentMessageSchema,
+  synthesizeQuerySchema,
+  transcribeQuerySchema,
+} from './supplier-agent.js';
 
 export type RouteMethod = 'GET' | 'POST' | 'PUT' | 'PATCH';
 
@@ -155,10 +160,24 @@ export const featureRoutes = {
       method: 'POST',
       path: '/supplier-agent/conversations/:id/messages',
       roles: S,
-      body: sendChatMessageSchema,
+      body: sendAgentMessageSchema,
     },
+    { method: 'GET', path: '/supplier-agent/conversations/:id/progress', roles: S },
     { method: 'POST', path: '/supplier-agent/actions/:id/confirm', roles: S },
     { method: 'POST', path: '/supplier-agent/actions/:id/cancel', roles: S },
+    { method: 'GET', path: '/supplier-agent/speech', roles: S },
+    {
+      method: 'POST',
+      path: '/supplier-agent/speech/transcribe',
+      roles: S,
+      query: transcribeQuerySchema,
+    },
+    {
+      method: 'GET',
+      path: '/supplier-agent/speech/audio',
+      roles: S,
+      query: synthesizeQuerySchema,
+    },
   ],
 } as const satisfies Record<string, readonly RouteContract[]>;
 

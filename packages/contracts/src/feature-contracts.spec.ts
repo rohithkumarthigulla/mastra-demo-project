@@ -138,6 +138,6 @@ describe('route manifest', () => {
   });
 
   it('covers every endpoint in the spec', () => {
-    expect(allFeatureRoutes).toHaveLength(44);
+    expect(allFeatureRoutes).toHaveLength(48);
   });
 });

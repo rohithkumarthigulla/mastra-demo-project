@@ -62,6 +62,10 @@ const calls = (api: ApiClient): (() => Promise<unknown>)[] => {
     () => api.supplierAgent.listConversations(),
     () => api.supplierAgent.getConversation(ID),
     () => api.supplierAgent.sendMessage(ID, body),
+    () => api.supplierAgent.progress(ID),
+    () => api.supplierAgent.speechStatus(),
+    () => api.supplierAgent.transcribe(new Blob(['x'])),
+    () => api.supplierAgent.synthesize({ text: 'Hello', language: 'en' }),
     () => api.supplierAgent.confirmAction(ID),
     () => api.supplierAgent.cancelAction(ID),
   ];
