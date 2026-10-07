@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "EquipmentExchange",
+    "slug": "equipment-exchange",
+    "scheme": "equipmentexchange",
+    "version": "0.0.0",
+    "platforms": ["ios", "android", "web"],
+    "plugins": ["expo-router"],
+    "web": {
+      "output": "single"
+    }
+  }
+}
