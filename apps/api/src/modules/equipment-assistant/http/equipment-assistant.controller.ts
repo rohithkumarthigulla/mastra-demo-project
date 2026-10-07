@@ -12,18 +12,21 @@ import {
   type SendChatMessageRequest,
 } from '@ee/contracts';
 import { AuthGuard, CurrentUser, Roles, RolesGuard, type AuthUser } from '../../../platform/auth';
-import { IdPipe, notImplemented, ZodValidationPipe } from '../../../platform/http';
+import { IdPipe, ZodValidationPipe } from '../../../platform/http';
+import { EquipmentAssistantService } from '../application';
 
 @Controller('equipment-assistant/conversations')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('BUILDER')
 export class EquipmentAssistantController {
+  constructor(private readonly assistant: EquipmentAssistantService) {}
+
   @Post()
   create(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createConversationSchema)) body: CreateConversationRequest,
   ): Promise<ConversationDto> {
-    return notImplemented(user, body);
+    return this.assistant.create(user.accountId, body);
   }
 
   @Get()
@@ -31,7 +34,7 @@ export class EquipmentAssistantController {
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(listConversationsQuerySchema)) query: ListConversationsQuery,
   ): Promise<ConversationPageDto> {
-    return notImplemented(user, query);
+    return this.assistant.list(user.accountId, query);
   }
 
   @Get(':id')
@@ -39,7 +42,7 @@ export class EquipmentAssistantController {
     @CurrentUser() user: AuthUser,
     @Param('id', IdPipe) id: string,
   ): Promise<AssistantConversationDetailDto> {
-    return notImplemented(user, id);
+    return this.assistant.get(user.accountId, id);
   }
 
   @Post(':id/messages')
@@ -48,6 +51,6 @@ export class EquipmentAssistantController {
     @Param('id', IdPipe) id: string,
     @Body(new ZodValidationPipe(sendChatMessageSchema)) body: SendChatMessageRequest,
   ): Promise<AssistantReplyDto> {
-    return notImplemented(user, id, body);
+    return this.assistant.send(user.accountId, id, body.content);
   }
 }

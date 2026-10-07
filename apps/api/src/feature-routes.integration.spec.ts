@@ -16,8 +16,7 @@ import { ROLES_KEY, TokenService } from './platform/auth';
 import { parseEnv } from './platform/config';
 import { configureApp } from './platform/http';
 
-// The pg pool connects lazily and only guards, pipes and stubs run here, so no database is
-// needed. Implemented routes are exercised end to end by their database-backed specs.
+// The pg pool connects lazily and no stub touches it, so no database is needed.
 const env = parseEnv({
   DATABASE_URL: 'postgres://unused:unused@localhost:5432/unused',
   JWT_SECRET: 'test-secret-that-is-at-least-32-chars-long',
@@ -34,15 +33,17 @@ const FEATURE_PREFIXES = [
   '/equipment-assistant',
   '/supplier-agent',
 ];
-
+/** Feature routes that are built; their behaviour is covered by their own module specs. */
 const IMPLEMENTED_PREFIXES = [
+  '/equipment-assistant',
+  '/supplier-agent',
+  '/requirements',
+  '/notifications',
   '/rental-requests',
   '/supplier/listings/:id/rate-card',
   '/quotes',
   '/bookings',
 ];
-const isStub = (route: RouteContract) =>
-  !IMPLEMENTED_PREFIXES.some((prefix) => route.path.startsWith(prefix));
 
 interface RegisteredRoute {
   method: string;
@@ -206,7 +207,9 @@ describe('feature routes (in-process)', () => {
         });
       }
 
-      for (const role of isStub(route) ? allowed : []) {
+      // Implemented routes need a database past validation; their own specs cover behaviour.
+      const implemented = IMPLEMENTED_PREFIXES.some((prefix) => route.path.startsWith(prefix));
+      for (const role of implemented ? [] : allowed) {
         it(`is 501 for ${role} with valid input`, async () => {
           const res = await call(route, tokenFor(role), validBody(route));
           assert.equal(res.statusCode, 501, res.body);
