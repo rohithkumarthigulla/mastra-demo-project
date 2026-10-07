@@ -27,70 +27,85 @@ import {
   type UpdateRequirementRequest,
 } from '@ee/contracts';
 import { AuthGuard, CurrentUser, Roles, RolesGuard, type AuthUser } from '../../../platform/auth';
-import { IdPipe, notImplemented, ZodValidationPipe } from '../../../platform/http';
+import { IdPipe, ZodValidationPipe } from '../../../platform/http';
+import { RequirementsService } from '../application';
+import { toInvitationDto, toMatchDto, toRequirementDetailDto, toRequirementDto } from './dto';
 
 @Controller('requirements')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('BUILDER')
 export class RequirementsController {
+  constructor(private readonly requirements: RequirementsService) {}
+
   @Post()
-  create(
+  async create(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createRequirementSchema)) body: CreateRequirementRequest,
   ): Promise<RequirementDto> {
-    return notImplemented(user, body);
+    return toRequirementDto(await this.requirements.create(user.accountId, body));
   }
 
   @Get()
-  list(
+  async list(
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(listRequirementsQuerySchema)) query: ListRequirementsQuery,
   ): Promise<RequirementPageDto> {
-    return notImplemented(user, query);
+    const page = await this.requirements.list(user.accountId, query);
+    return {
+      ...page,
+      items: page.items.map(toRequirementDto),
+      limit: query.limit,
+      offset: query.offset,
+    };
   }
 
   @Get(':id')
-  get(
+  async get(
     @CurrentUser() user: AuthUser,
     @Param('id', IdPipe) id: string,
   ): Promise<RequirementDetailDto> {
-    return notImplemented(user, id);
+    return toRequirementDetailDto(await this.requirements.detail(user.accountId, id));
   }
 
   /** Only while `DRAFT`. */
   @Patch(':id')
-  update(
+  async update(
     @CurrentUser() user: AuthUser,
     @Param('id', IdPipe) id: string,
     @Body(new ZodValidationPipe(updateRequirementSchema)) body: UpdateRequirementRequest,
   ): Promise<RequirementDto> {
-    return notImplemented(user, id, body);
+    return toRequirementDto(await this.requirements.update(user.accountId, id, body));
   }
 
   /** Active listings in the requirement's city and category with a free unit for the dates. */
   @Get(':id/matches')
-  matches(
+  async matches(
     @CurrentUser() user: AuthUser,
     @Param('id', IdPipe) id: string,
     @Query(new ZodValidationPipe(requirementMatchesQuerySchema)) query: RequirementMatchesQuery,
   ): Promise<RequirementMatchPageDto> {
-    return notImplemented(user, id, query);
+    const page = await this.requirements.matches(user.accountId, id, query);
+    return { ...page, items: page.items.map(toMatchDto), limit: query.limit, offset: query.offset };
   }
 
   /** Invites each listing as a rental request; moves `DRAFT` to `OPEN`. */
   @Post(':id/send')
   @HttpCode(200)
-  send(
+  async send(
     @CurrentUser() user: AuthUser,
     @Param('id', IdPipe) id: string,
     @Body(new ZodValidationPipe(sendRequirementSchema)) body: SendRequirementRequest,
   ): Promise<SendRequirementResponse> {
-    return notImplemented(user, id, body);
+    const result = await this.requirements.send(user.accountId, id, body);
+    return { sent: result.sent.map(toInvitationDto), skipped: result.skipped };
   }
 
   @Post(':id/cancel')
   @HttpCode(200)
-  cancel(@CurrentUser() user: AuthUser, @Param('id', IdPipe) id: string): Promise<RequirementDto> {
-    return notImplemented(user, id);
+  async cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('id', IdPipe) id: string,
+  ): Promise<RequirementDto> {
+    return toRequirementDto(await this.requirements.cancel(user.accountId, id));
   }
 }
