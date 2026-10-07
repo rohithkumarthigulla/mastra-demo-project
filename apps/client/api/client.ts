@@ -38,6 +38,14 @@ import {
 import { z, type ZodType } from 'zod';
 import type { AuthStorage } from '../platform/types';
 import { ApiError, toApiError } from './errors';
+import { createBookingsApi } from './bookings';
+import { createEquipmentAssistantApi } from './equipment-assistant';
+import { createNotificationsApi } from './notifications';
+import { createQuotesApi } from './quotes';
+import { createRateCardsApi } from './rate-cards';
+import { createRentalRequestsApi } from './rental-requests';
+import { createRequirementsApi } from './requirements';
+import { createSupplierAgentApi } from './supplier-agent';
 
 export interface ApiClientOptions {
   baseUrl: string;
@@ -47,7 +55,7 @@ export interface ApiClientOptions {
   fetch?: typeof fetch;
 }
 
-interface RequestOptions<T> {
+export interface RequestOptions<T> {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   /** JSON-encoded unless it is FormData, which fetch sends as multipart. */
   body?: unknown;
@@ -55,6 +63,8 @@ interface RequestOptions<T> {
   /** Send the access token and refresh-and-retry once on 401. */
   auth?: boolean;
 }
+
+export type ApiRequest = <T>(path: string, opts?: RequestOptions<T>) => Promise<T>;
 
 type WithoutClient<T> = Omit<T, 'client'>;
 
@@ -312,6 +322,14 @@ export function createApiClient(options: ApiClientOptions) {
       get: (): Promise<PublicReferenceDto> =>
         request('/public/reference', { schema: publicReferenceSchema, auth: false }),
     },
+    rentalRequests: createRentalRequestsApi(request),
+    rateCards: createRateCardsApi(request),
+    quotes: createQuotesApi(request),
+    bookings: createBookingsApi(request),
+    requirements: createRequirementsApi(request),
+    notifications: createNotificationsApi(request),
+    equipmentAssistant: createEquipmentAssistantApi(request),
+    supplierAgent: createSupplierAgentApi(request),
   };
 }
 
