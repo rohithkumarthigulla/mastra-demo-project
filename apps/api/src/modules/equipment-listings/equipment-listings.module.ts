@@ -11,6 +11,7 @@ import {
   PublicListingsController,
   SupplierListingMediaController,
   SupplierListingsController,
+  SupplierRateCardsController,
 } from './http';
 import {
   DrizzleEquipmentListingsRepository,
@@ -23,6 +24,7 @@ import {
     SupplierListingsController,
     SupplierListingMediaController,
     PublicListingsController,
+    SupplierRateCardsController,
   ],
   providers: [
     EquipmentListingsService,

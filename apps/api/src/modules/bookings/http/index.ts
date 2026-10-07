@@ -1,1 +1,1 @@
-export {};
+export { BookingsController } from './bookings.controller';

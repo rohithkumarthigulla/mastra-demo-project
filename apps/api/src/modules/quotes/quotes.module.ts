@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { QuotesController } from './http';
 
-@Module({})
+@Module({ controllers: [QuotesController] })
 export class QuotesModule {}

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EquipmentAssistantController } from './http';
 
-@Module({})
+@Module({ controllers: [EquipmentAssistantController] })
 export class EquipmentAssistantModule {}

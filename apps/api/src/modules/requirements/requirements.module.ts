@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RequirementsController } from './http';
 
-@Module({})
+@Module({ controllers: [RequirementsController] })
 export class RequirementsModule {}
