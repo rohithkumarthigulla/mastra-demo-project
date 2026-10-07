@@ -211,10 +211,11 @@ const SCRIPT: Step[] = [
       const models = capabilityModels(ctx);
       if (!capability || models.length === 0) return null;
       return {
-        recommendations: models.slice(0, 3).map((m) => ({
-          modelId: m.model.id,
-          reason: `Linked to the ${capability} capability this job requires.`,
-        })),
+        modelIds: models
+          .slice(0, 3)
+          .map((m) => m.model.id)
+          .join(','),
+        reason: `Linked to the ${capability} capability this job requires.`,
       };
     },
   },
