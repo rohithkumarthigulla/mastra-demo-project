@@ -1,0 +1,12 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Runs once per deploy, before traffic switches; a container restart never re-runs it.
+# Wrapped in a shell because the Dockerfile builder executes the command without one.
+preDeployCommand = ["sh -c 'pnpm --filter @ee/api db:migrate && pnpm --filter @ee/api db:seed'"]
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
