@@ -1,5 +1,1 @@
-export {
-  notificationKind,
-  notifications,
-  notificationTone,
-} from '../../../platform/database/schema';
+export { DrizzleNotificationsRepository } from './drizzle-notifications.repository';

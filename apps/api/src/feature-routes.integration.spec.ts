@@ -33,6 +33,8 @@ const FEATURE_PREFIXES = [
   '/equipment-assistant',
   '/supplier-agent',
 ];
+/** Feature routes that are built; their behaviour is covered by their own module specs. */
+const IMPLEMENTED_PREFIXES = ['/requirements', '/notifications'];
 
 interface RegisteredRoute {
   method: string;
@@ -196,7 +198,8 @@ describe('feature routes (in-process)', () => {
         });
       }
 
-      for (const role of allowed) {
+      const implemented = IMPLEMENTED_PREFIXES.some((prefix) => route.path.startsWith(prefix));
+      for (const role of implemented ? [] : allowed) {
         it(`is 501 for ${role} with valid input`, async () => {
           const res = await call(route, tokenFor(role), validBody(route));
           assert.equal(res.statusCode, 501, res.body);
