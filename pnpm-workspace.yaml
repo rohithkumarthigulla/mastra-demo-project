@@ -1,0 +1,15 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Expo's Metro bundler needs a flat node_modules layout.
+nodeLinker: hoisted
+
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - '@expo/ui@57.0.22'
+  - expo-constants@57.0.21
+  - expo-linking@57.0.12
+  - expo-router@57.0.25

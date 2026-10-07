@@ -1,0 +1,7 @@
+dist
+.expo
+web-build
+coverage
+pnpm-lock.yaml
+apps/api/drizzle
+.artifacts
