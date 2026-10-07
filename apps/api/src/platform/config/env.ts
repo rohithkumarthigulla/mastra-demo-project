@@ -15,6 +15,12 @@ export const envSchema = z.object({
           .map((origin) => origin.trim())
           .filter(Boolean) ?? [],
     ),
+  LISTING_MEDIA_DIR: z.string().min(1).default('./storage/listing-media'),
+  LISTING_MEDIA_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(8 * 1024 * 1024),
 });
 
 export type Env = z.infer<typeof envSchema>;

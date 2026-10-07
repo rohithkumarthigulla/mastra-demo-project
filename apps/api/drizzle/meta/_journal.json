@@ -64,6 +64,13 @@
       "when": 1791364985320,
       "tag": "0008_equipment_listings",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791365342959,
+      "tag": "0009_listing_media",
+      "breakpoints": true
     }
   ]
 }

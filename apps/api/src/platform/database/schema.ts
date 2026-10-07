@@ -5,6 +5,7 @@ import {
   date,
   doublePrecision,
   index,
+  integer,
   numeric,
   pgEnum,
   pgTable,
@@ -437,5 +438,32 @@ export const equipmentListings = pgTable(
     index('equipment_listings_status_city_idx').on(t.status, t.cityId),
     index('equipment_listings_status_created_at_idx').on(t.status, t.createdAt),
     index('equipment_listings_model_id_idx').on(t.modelId),
+  ],
+);
+
+export const listingMedia = pgTable(
+  'listing_media',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    listingId: uuid('listing_id')
+      .notNull()
+      .references(() => equipmentListings.id, { onDelete: 'cascade' }),
+    storageKey: text('storage_key').notNull().unique(),
+    originalFilename: text('original_filename').notNull(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    position: integer('position').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'listing_media_mime_type_chk',
+      sql`${t.mimeType} IN ('image/jpeg', 'image/png', 'image/webp')`,
+    ),
+    check('listing_media_size_bytes_chk', sql`${t.sizeBytes} > 0`),
+    check('listing_media_position_chk', sql`${t.position} >= 0`),
+    // Not unique so a reorder can rewrite positions row by row without deferred constraints.
+    index('listing_media_listing_position_idx').on(t.listingId, t.position),
   ],
 );

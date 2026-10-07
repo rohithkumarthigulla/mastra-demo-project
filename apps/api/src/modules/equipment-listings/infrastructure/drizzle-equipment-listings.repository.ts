@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, gte, ilike, lte, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, type SQL } from 'drizzle-orm';
 import { DB, type Database } from '../../../platform/database';
 import {
   cities,
   equipmentCategories,
   equipmentListings,
   equipmentModels,
+  listingMedia,
   manufacturers,
   supplierProfiles,
 } from '../../../platform/database/schema';
@@ -15,6 +16,7 @@ import type {
   EquipmentListingRepository,
   ListingFields,
   ListingPageResult,
+  ListingPhoto,
   ListingScope,
   ListingStatus,
   ListingView,
@@ -215,28 +217,47 @@ export class DrizzleEquipmentListingsRepository implements EquipmentListingRepos
       .innerJoin(supplierProfiles, eq(supplierProfiles.id, equipmentListings.supplierProfileId));
   }
 
-  private toViews(rows: ViewRow[]): Promise<ListingView[]> {
-    return Promise.resolve(
-      rows.map((row): ListingView => ({
-        id: row.id,
-        supplierProfileId: row.supplierProfileId,
-        status: row.status,
-        title: row.title,
-        description: row.description,
-        location: row.location,
-        pricePerDay: readNumeric(row.pricePerDay)!,
-        model: {
-          id: row.modelId,
-          modelName: row.modelName,
-          manufacturer: { id: row.manufacturerId, name: row.manufacturerName },
-          category: { code: row.categoryCode, displayName: row.categoryDisplayName },
-        },
-        city: { geoId: row.cityGeoId, name: row.cityName },
-        supplier: { id: row.supplierProfileId, displayName: row.supplierDisplayName },
-        photos: [],
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      })),
-    );
+  /** One query for the photos of every listing on the page, grouped and ordered. */
+  private async photosFor(listingIds: string[]): Promise<Map<string, ListingPhoto[]>> {
+    const byListing = new Map<string, ListingPhoto[]>();
+    if (listingIds.length === 0) return byListing;
+    const rows = await this.db
+      .select({
+        id: listingMedia.id,
+        listingId: listingMedia.listingId,
+        mimeType: listingMedia.mimeType,
+        position: listingMedia.position,
+      })
+      .from(listingMedia)
+      .where(inArray(listingMedia.listingId, listingIds))
+      .orderBy(asc(listingMedia.position), asc(listingMedia.createdAt));
+    for (const { listingId, ...photo } of rows) {
+      byListing.set(listingId, [...(byListing.get(listingId) ?? []), photo]);
+    }
+    return byListing;
+  }
+
+  private async toViews(rows: ViewRow[]): Promise<ListingView[]> {
+    const photos = await this.photosFor(rows.map((row) => row.id));
+    return rows.map((row): ListingView => ({
+      id: row.id,
+      supplierProfileId: row.supplierProfileId,
+      status: row.status,
+      title: row.title,
+      description: row.description,
+      location: row.location,
+      pricePerDay: readNumeric(row.pricePerDay)!,
+      model: {
+        id: row.modelId,
+        modelName: row.modelName,
+        manufacturer: { id: row.manufacturerId, name: row.manufacturerName },
+        category: { code: row.categoryCode, displayName: row.categoryDisplayName },
+      },
+      city: { geoId: row.cityGeoId, name: row.cityName },
+      supplier: { id: row.supplierProfileId, displayName: row.supplierDisplayName },
+      photos: photos.get(row.id) ?? [],
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
   }
 }

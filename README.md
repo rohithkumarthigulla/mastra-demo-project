@@ -206,6 +206,24 @@ Supplier routes need the `SUPPLIER` role (401 signed out, 403 any other role) an
 
 Tables are created by migration `0008`.
 
+### Photos
+
+Suppliers manage the photos of their own listings (same role, profile and ownership rules as above). The first photo in order is the cover photo.
+
+| Endpoint                                       | Body                                    | Success                          |
+| ---------------------------------------------- | --------------------------------------- | -------------------------------- |
+| `POST /supplier/listings/:id/media`            | `multipart/form-data`, exactly one file | 201 photo, added last            |
+| `DELETE /supplier/listings/:id/media/:mediaId` |                                         | 204; row and file removed        |
+| `PUT /supplier/listings/:id/media/order`       | `{ "mediaIds": [...] }`                 | 200 `{ items }` in the new order |
+| `GET /equipment-listings/:id/media/:mediaId`   |                                         | 200 image bytes                  |
+
+- **Uploads.** JPEG, PNG and WebP only, judged by the file's content rather than its name or declared type (415 `unsupported_media_type`). At most `LISTING_MEDIA_MAX_BYTES` (default 8 MB, 413 `media_too_large`) per photo and 10 photos per listing (409 `media_limit_reached`).
+- **Order.** `mediaIds` must list every current photo of the listing exactly once (400 `invalid_media_order`).
+- **Serving.** Photos of `ACTIVE` listings are public. Photos of `DRAFT` or `INACTIVE` listings are only served to the owning supplier (send the bearer token); everyone else gets 404 `media_not_found`.
+- **Storage.** Files are kept on local disk under `LISTING_MEDIA_DIR` (default `./storage/listing-media`, relative to `apps/api`, git-ignored) under server-generated names; client filenames are stored for display only. Storage sits behind a small interface (`ListingMediaStorage`) so it can be swapped for cloud storage.
+
+The `listing_media` table is created by migration `0009`.
+
 ## Reference data
 
 `GET /public/reference` is unauthenticated and returns `{ cities, entityTypes }` with `Cache-Control: public, max-age=300`, for sign-up forms and city pickers.
