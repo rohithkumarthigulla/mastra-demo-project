@@ -9,8 +9,10 @@ import { formatDailyRate, ListingStatusBadge, queryKeys } from '../../../../feat
 import {
   changedFields,
   ListingEditor,
+  ListingMachines,
   listingToForm,
   PhotoManager,
+  RateCardEditor,
   useRefreshListings,
   validateListingForm,
 } from '../../../../features/supplier';
@@ -134,6 +136,17 @@ export default function EditListingScreen() {
         ) : null}
       </View>
       <ErrorMessage message={transitionError} />
+      {transition.error instanceof ApiError &&
+      transition.error.code === 'listing_has_no_active_units' ? (
+        <View style={{ alignSelf: 'flex-start' }}>
+          <Button
+            title="Add a machine"
+            onPress={() =>
+              router.push({ pathname: '/supplier/fleet/units/new', params: { listingId: id } })
+            }
+          />
+        </View>
+      ) : null}
 
       <View
         style={{
@@ -150,6 +163,7 @@ export default function EditListingScreen() {
           }}
         >
           <PhotoManager listing={current} />
+          <ListingMachines listingId={current.id} />
         </View>
         <View
           style={{
@@ -182,6 +196,7 @@ export default function EditListingScreen() {
             }}
           />
           {saved ? <Text style={{ color: theme.colors.textMuted }}>Saved.</Text> : null}
+          <RateCardEditor listingId={current.id} />
         </View>
       </View>
     </Screen>
