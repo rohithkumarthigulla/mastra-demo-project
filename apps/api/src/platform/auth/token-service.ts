@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { accountRoleSchema } from '@ee/contracts';
 import { DomainError } from '../http';
 import { CLOCK, type Clock } from './clock';
+import type { AuthUser } from './current-user.decorator';
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 
@@ -19,16 +21,16 @@ export class TokenService {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  signAccessToken(accountId: string): { accessToken: string; expiresIn: number } {
+  signAccessToken(user: AuthUser): { accessToken: string; expiresIn: number } {
     const accessToken = this.jwt.sign(
-      { sub: accountId, iat: this.nowSeconds() },
+      { sub: user.accountId, role: user.role, iat: this.nowSeconds() },
       { algorithm: 'HS256', expiresIn: ACCESS_TOKEN_TTL_SECONDS },
     );
     return { accessToken, expiresIn: ACCESS_TOKEN_TTL_SECONDS };
   }
 
-  verifyAccessToken(token: string): { accountId: string } {
-    let payload: { sub?: unknown };
+  verifyAccessToken(token: string): AuthUser {
+    let payload: { sub?: unknown; role?: unknown };
     try {
       payload = this.jwt.verify(token, {
         algorithms: ['HS256'],
@@ -37,8 +39,9 @@ export class TokenService {
     } catch {
       throw new InvalidAccessTokenError();
     }
-    if (typeof payload.sub !== 'string') throw new InvalidAccessTokenError();
-    return { accountId: payload.sub };
+    const role = accountRoleSchema.safeParse(payload.role);
+    if (typeof payload.sub !== 'string' || !role.success) throw new InvalidAccessTokenError();
+    return { accountId: payload.sub, role: role.data };
   }
 
   generateRefreshToken(): { token: string; hash: string } {

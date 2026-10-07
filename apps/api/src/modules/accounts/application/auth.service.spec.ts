@@ -39,7 +39,12 @@ function setup() {
   };
 }
 
-const input = { email: 'Ada@Example.com', password: 'password123', displayName: 'Ada' };
+const input = {
+  email: 'Ada@Example.com',
+  password: 'password123',
+  displayName: 'Ada',
+  role: 'SUPPLIER',
+} as const;
 
 function hasCode(code: string, status: number) {
   return (error: unknown) => {
@@ -56,10 +61,24 @@ describe('AuthService', () => {
     const result = await service.register(input);
     assert.equal(result.account.email, 'ada@example.com');
     assert.equal(accounts.rows[0]!.passwordHash, 'hashed:password123');
+    assert.equal(result.account.role, 'SUPPLIER');
     assert.deepEqual(tokens.verifyAccessToken(result.accessToken), {
       accountId: result.account.id,
+      role: 'SUPPLIER',
     });
     assert.ok(result.refreshToken);
+  });
+
+  it('puts the current role into the token issued on refresh', async () => {
+    const { service, accounts, tokens } = setup();
+    const { account, refreshToken } = await service.register(input);
+    accounts.rows[0]!.role = 'ADMIN';
+    const refreshed = await service.refresh(refreshToken);
+    assert.equal(refreshed.account.role, 'ADMIN');
+    assert.deepEqual(tokens.verifyAccessToken(refreshed.accessToken), {
+      accountId: account.id,
+      role: 'ADMIN',
+    });
   });
 
   it('rejects a duplicate email regardless of case with 409', async () => {

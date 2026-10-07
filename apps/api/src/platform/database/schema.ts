@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+
+export const accountRole = pgEnum('account_role', ['SUPPLIER', 'BUILDER', 'ADMIN']);
 
 export const accounts = pgTable(
   'accounts',
@@ -8,6 +10,7 @@ export const accounts = pgTable(
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     displayName: text('display_name').notNull(),
+    role: accountRole('role').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -28,3 +31,14 @@ export const refreshTokens = pgTable(
   },
   (t) => [index('refresh_tokens_account_id_idx').on(t.accountId)],
 );
+
+export const supplierProfiles = pgTable('supplier_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id')
+    .notNull()
+    .unique()
+    .references(() => accounts.id, { onDelete: 'cascade' }),
+  displayName: text('display_name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
