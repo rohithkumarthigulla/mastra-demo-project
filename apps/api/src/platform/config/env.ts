@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const envSchema = z.object({
   DATABASE_URL: z.url(),
+  JWT_SECRET: z.string().min(32, 'must be at least 32 characters'),
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   CORS_ORIGINS: z
     .string()

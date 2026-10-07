@@ -1,5 +1,6 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { ConfigModule, type Env } from './platform/config';
+import { AuthModule } from './platform/auth';
 import { DatabaseModule } from './platform/database';
 import { AccountsModule } from './modules/accounts/accounts.module';
 import { SupplierProfilesModule } from './modules/supplier-profiles/supplier-profiles.module';
@@ -26,6 +27,7 @@ export class AppModule {
       imports: [
         ConfigModule.forRoot(env),
         DatabaseModule,
+        AuthModule,
         AccountsModule,
         SupplierProfilesModule,
         ReferenceModule,

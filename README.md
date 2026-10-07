@@ -45,13 +45,36 @@ pnpm --filter @ee/client web        # client in the browser
 
 The api validates its environment on startup and exits with a clear message if anything is missing:
 
-| Variable       | Required | Meaning                                                 |
-| -------------- | -------- | ------------------------------------------------------- |
-| `DATABASE_URL` | yes      | PostgreSQL connection string                            |
-| `PORT`         | no       | port to listen on (default `3000`)                      |
-| `CORS_ORIGINS` | no       | comma-separated allowed origins; CORS is off when empty |
+| Variable       | Required | Meaning                                                                              |
+| -------------- | -------- | ------------------------------------------------------------------------------------ |
+| `DATABASE_URL` | yes      | PostgreSQL connection string                                                         |
+| `PORT`         | no       | port to listen on (default `3000`)                                                   |
+| `CORS_ORIGINS` | no       | comma-separated allowed origins; CORS is off when empty                              |
+| `JWT_SECRET`   | yes      | secret for signing access tokens, at least 32 characters (`openssl rand -base64 48`) |
+| `NODE_ENV`     | no       | `development` (default), `test` or `production`; `production` marks cookies `Secure` |
 
 `GET /health` returns 503 `{"code":"database_unavailable",...}` when the database is down or migrations have not been applied.
+
+## Authentication
+
+Accounts live in the `accounts` module (`apps/api/src/modules/accounts`). Request and response shapes are in `@ee/contracts` (`packages/contracts/src/accounts.ts`).
+
+| Endpoint              | Body                                                  | Success                                                  |
+| --------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
+| `POST /auth/register` | `email`, `password` (min 8), `displayName`, `client?` | 201 `{ account, accessToken, expiresIn, refreshToken? }` |
+| `POST /auth/login`    | `email`, `password`, `client?`                        | 200, same shape as register                              |
+| `POST /auth/refresh`  | `refreshToken?`, `client?`                            | 200, same shape; the old refresh token stops working     |
+| `POST /auth/logout`   | `refreshToken?`, `client?`                            | 204; revokes the refresh token                           |
+| `GET /auth/me`        | header `Authorization: Bearer <accessToken>`          | 200 `{ id, email, displayName, createdAt }`              |
+
+- **Passwords** are hashed with argon2id. Emails are trimmed, lower-cased and unique regardless of case.
+- **Access tokens** are HS256 JWTs signed with `JWT_SECRET`. They expire after 15 minutes (`expiresIn: 900`).
+- **Refresh tokens** are 32 random bytes and last 30 days. Only their SHA-256 hash is stored. Each refresh rotates the token, so reusing an old one returns 401.
+- **Clients.** `client` is `"native"` (default) or `"web"`. Native clients get `refreshToken` in the response body and send it back in the body. Web clients get it in an `httpOnly`, `SameSite=Lax` cookie named `refresh_token` scoped to `/auth`; the cookie is never put in the body. Browsers on another origin must be listed in `CORS_ORIGINS` and send credentials.
+- **Rate limit.** Each IP can make 10 requests per minute across all `/auth` routes; the 11th returns 429. The counter is in memory, so every API process keeps its own.
+- **Errors** use the usual `{ code, message }` body: 400 `validation_failed`, 401 `invalid_credentials` / `invalid_refresh_token` / `invalid_token` / `unauthenticated`, 409 `email_taken`, 429 rate limited.
+
+To protect another route, add `@UseGuards(AuthGuard)` and read the caller with `@CurrentUser()` (both from `src/platform/auth`).
 
 ## Scripts
 

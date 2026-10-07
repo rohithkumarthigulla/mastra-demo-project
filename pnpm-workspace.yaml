@@ -6,6 +6,7 @@ packages:
 nodeLinker: hoisted
 
 allowBuilds:
+  argon2: true
   esbuild: true
 
 minimumReleaseAgeExclude:

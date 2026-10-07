@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
 import { loadEnv } from './platform/config';
-import { AllExceptionsFilter } from './platform/http';
+import { configureApp } from './platform/http';
 
 async function bootstrap(): Promise<void> {
   const env = loadEnv();
@@ -11,9 +11,8 @@ async function bootstrap(): Promise<void> {
     AppModule.forRoot(env),
     new FastifyAdapter(),
   );
-  app.useGlobalFilters(new AllExceptionsFilter());
+  await configureApp(app, env);
   app.enableShutdownHooks();
-  if (env.CORS_ORIGINS.length > 0) app.enableCors({ origin: env.CORS_ORIGINS });
   await app.listen(env.PORT, '0.0.0.0');
 }
 
