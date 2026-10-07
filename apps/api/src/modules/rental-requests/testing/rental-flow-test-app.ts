@@ -192,6 +192,52 @@ export class RentalFlowHarness {
     return { id: listing!.id, supplier, unitIds, pricePerDay, title };
   }
 
+  /**
+   * An OPEN requirement with one PENDING invitation per listing, as the requirements
+   * feature would create them. Returns the requirement id and request ids by listing.
+   */
+  async requirement(
+    builder: Actor,
+    listings: Listing[],
+    startDate: string,
+    endDate: string,
+  ): Promise<{ id: string; requestIds: string[] }> {
+    const { cityId, modelId } = await this.referenceData();
+    const [model] = await this.db
+      .select({ categoryId: equipmentModels.categoryId })
+      .from(equipmentModels)
+      .where(eq(equipmentModels.id, modelId));
+    const [requirement] = await this.db
+      .insert(requirements)
+      .values({
+        builderAccountId: builder.accountId,
+        title: `Requirement ${randomUUID().slice(0, 8)}`,
+        categoryId: model!.categoryId,
+        cityId,
+        startDate,
+        endDate,
+        status: 'OPEN',
+        sentAt: new Date(),
+      })
+      .returning({ id: requirements.id });
+    const requests = await this.db
+      .insert(rentalRequests)
+      .values(
+        listings.map((l) => ({
+          listingId: l.id,
+          builderAccountId: builder.accountId,
+          requirementId: requirement!.id,
+          startDate,
+          endDate,
+        })),
+      )
+      .returning({ id: rentalRequests.id, listingId: rentalRequests.listingId });
+    return {
+      id: requirement!.id,
+      requestIds: listings.map((l) => requests.find((r) => r.listingId === l.id)!.id),
+    };
+  }
+
   /** Removes every row created through this harness, children first. */
   async cleanup(): Promise<void> {
     if (this.accountIds.length === 0) return;
