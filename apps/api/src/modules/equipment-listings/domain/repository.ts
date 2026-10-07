@@ -61,4 +61,5 @@ export interface EquipmentListingRepository {
     query: Page & { status?: ListingStatus },
   ): Promise<ListingPageResult>;
   browse(filters: BrowseFilters): Promise<ListingPageResult>;
+  countActiveUnits(listingId: string): Promise<number>;
 }

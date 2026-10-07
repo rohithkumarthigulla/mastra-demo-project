@@ -49,6 +49,9 @@ export class InMemoryEquipmentListingsRepository implements EquipmentListingRepo
   /** Photos per listing; Part 2 tests plug the media repository in here. */
   photosFor: (listingId: string) => ListingPhoto[] = () => [];
 
+  /** ACTIVE machines per listing; fleet tests plug the fleet repository in here. */
+  activeUnitsFor: (listingId: string) => number = () => 0;
+
   findSupplierProfileId(accountId: string): Promise<string | null> {
     return Promise.resolve(this.profiles.find((p) => p.accountId === accountId)?.id ?? null);
   }
@@ -138,6 +141,10 @@ export class InMemoryEquipmentListingsRepository implements EquipmentListingRepo
       );
     });
     return Promise.resolve(this.page(matches, filters));
+  }
+
+  countActiveUnits(listingId: string): Promise<number> {
+    return Promise.resolve(this.activeUnitsFor(listingId));
   }
 
   private owned(id: string, supplierProfileId: string): StoredListing | undefined {

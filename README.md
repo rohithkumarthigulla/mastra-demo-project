@@ -202,7 +202,7 @@ Supplier routes need the `SUPPLIER` role (401 signed out, 403 any other role) an
 
 - **Fields.** `title` 3–120 characters, `description` 10–2000, `location` (free text such as a site or area) 2–160, all trimmed. `pricePerDay` is rupees, more than 0 and at most 1,000,000 with up to 2 decimals. Violations return 400 `validation_failed`.
 - **References.** `cityGeoId` must be an enabled city (400 `invalid_city`); `modelId` must be an `ACTIVE` knowledge-base model (400 `invalid_model`).
-- **Status.** New listings are `DRAFT`. `publish` moves `DRAFT` or `INACTIVE` to `ACTIVE`; `deactivate` moves `ACTIVE` to `INACTIVE`. Anything else returns 409 `invalid_listing_transition`. Listings can be edited in any status.
+- **Status.** New listings are `DRAFT`. `publish` moves `DRAFT` or `INACTIVE` to `ACTIVE`; `deactivate` moves `ACTIVE` to `INACTIVE`. Anything else returns 409 `invalid_listing_transition`. Publishing also needs at least one `ACTIVE` machine (see [Fleet](#fleet)). Listings can be edited in any status.
 - **A listing** returns `id`, `status`, the fields above, `model` (`id`, `modelName`, `manufacturer`, `category`), `city` (`geoId`, `name`), `supplier` (`id`, `displayName`), `photos` in order, `coverPhotoUrl`, `createdAt` and `updatedAt`.
 - **Browse filters**, combined with AND: `city` (geo id), `category` (code), `modelId`, `manufacturer` (manufacturer id), `minPrice`, `maxPrice` (inclusive; `minPrice > maxPrice` is 400) and `q` (text in the title, regardless of case). Results are newest first; `limit` defaults to 20 and may be 1–100.
 
@@ -225,6 +225,55 @@ Suppliers manage the photos of their own listings (same role, profile and owners
 - **Storage.** Files are kept on local disk under `LISTING_MEDIA_DIR` (default `./storage/listing-media`, relative to `apps/api`, git-ignored) under server-generated names; client filenames are stored for display only. Storage sits behind a small interface (`ListingMediaStorage`) so it can be swapped for cloud storage.
 
 The `listing_media` table is created by migration `0009`.
+
+## Fleet
+
+A listing is the offer; the fleet is the machines behind it (`apps/api/src/modules/fleet`, contracts in `packages/contracts/src/fleet.ts`). A supplier keeps machines in **yards**. Each **machine** (equipment unit) belongs to one of the supplier's listings and one of their yards, and has optional **asset identifiers** (serial, registration and engine number). A machine's model always comes from its listing; it is not stored again.
+
+Routes need the `SUPPLIER` role and a supplier profile, like listings. A supplier only sees their own yards and machines: another supplier's id (or a malformed one) returns 404 `yard_not_found` / `unit_not_found`, and pointing a machine at another supplier's listing or yard returns 404 `listing_not_found` / `yard_not_found`.
+
+| Endpoint                       | Body                                                                      | Success                    |
+| ------------------------------ | ------------------------------------------------------------------------- | -------------------------- |
+| `GET /fleet/yards`             |                                                                           | 200 yards, by name         |
+| `POST /fleet/yards`            | `name`, `cityGeoId`, `address`                                            | 201 yard                   |
+| `PATCH /fleet/yards/:id`       | any of the create fields (at least one)                                   | 200 yard                   |
+| `DELETE /fleet/yards/:id`      |                                                                           | 204                        |
+| `GET /fleet/units`             | query `listingId?`, `yardId?`, `status?`                                  | 200 machines, newest first |
+| `POST /fleet/units`            | `listingId`, `yardId`, `modelYear`, `condition`, `label?`, `identifiers?` | 201 machine, `ACTIVE`      |
+| `GET /fleet/units/:id`         |                                                                           | 200 machine                |
+| `PATCH /fleet/units/:id`       | any of `yardId`, `modelYear`, `condition`, `label`, `identifiers` (≥ 1)   | 200 machine                |
+| `POST /fleet/units/:id/retire` |                                                                           | 200 machine, `RETIRED`     |
+
+- **Yards.** `name` 1–80 characters, unique per supplier regardless of case (409 `yard_name_taken`); `address` up to 300; `cityGeoId` an enabled city (400 `invalid_city`). A yard with `ACTIVE` machines cannot be deleted (409 `yard_has_active_units`); neither can one that only holds retired machines, which are kept for history (409 `yard_in_use`).
+- **Machines.** `modelYear` 1950–2100; `condition` one of `NEW`, `EXCELLENT`, `GOOD`, `FAIR`, `POOR`; `label` up to 80 (`null` clears it). A machine's listing cannot change. A machine returns `listing` (`id`, `title`), `model` (with `manufacturer`), `yard` (with `city`), its fields, `status` and `identifiers`.
+- **Identifiers.** `{ type, value }` with type `SERIAL_NUMBER`, `REGISTRATION_NUMBER` or `ENGINE_NUMBER` and a value up to 80 characters; at most one of each type per machine. A type + value pair is unique across a supplier's fleet regardless of case (409 `duplicate_identifier`); different suppliers may reuse it. Sending `identifiers` on update replaces the whole set.
+- **Retiring.** Retired machines are kept but cannot be edited, retired again (409 `unit_retired`) or blocked, and never count as available.
+- **Publishing.** A listing needs at least one `ACTIVE` machine to be published (409 `listing_has_no_active_units`). Retiring a published listing's last machine does not unpublish it; it just shows no availability.
+
+Tables are created by migration `0010`.
+
+## Availability
+
+Suppliers block machines out of service; anyone can ask how many machines of a listing are free (`apps/api/src/modules/availability`, contracts in `packages/contracts/src/availability.ts`). A machine is **available** for a time range when it is `ACTIVE` and no `ACTIVE` block overlaps the range. Bookings will plug into the same rule.
+
+All ranges are half-open, `[start, end)`: a block ending at 10:00 does not overlap one starting at 10:00. Times are ISO 8601 with an offset (`Z` or `+05:30`) and are returned in UTC.
+
+| Endpoint                                   | Body / query                          | Success                                             |
+| ------------------------------------------ | ------------------------------------- | --------------------------------------------------- |
+| `POST /availability/units/:unitId/blocks`  | `reason`, `startAt`, `endAt`, `note?` | 201 block, `ACTIVE`                                 |
+| `DELETE /availability/blocks/:blockId`     |                                       | 200 block, `LIFTED`                                 |
+| `GET /availability/units/:unitId`          | query `from`, `to`                    | 200 calendar for one machine                        |
+| `GET /availability/fleet`                  | query `from`, `to`                    | 200 `{ from, to, lanes }`, one per `ACTIVE` machine |
+| `GET /equipment-listings/:id/availability` | query `from`, `to`                    | 200 `{ totalUnits, availableUnits }`                |
+
+- **Blocks.** `reason` is `MAINTENANCE`, `TRANSPORT` or `HELD_BACK`; `note` up to 500 characters. `endAt` must be after `startAt` (400 `validation_failed`) and `startAt` cannot be in the past (400 `block_in_past`). Retired machines cannot be blocked (409 `unit_retired`).
+- **No double blocking.** Overlapping `ACTIVE` blocks on one machine return 409 `block_overlap`. This is enforced by a Postgres exclusion constraint (`btree_gist`), so two requests racing for the same time cannot both win.
+- **Lifting** marks a block `LIFTED` and frees the time; the row is kept for history. Lifting twice returns 409 `block_already_lifted`.
+- **Calendars** list every `ACTIVE` block overlapping `[from, to)` as a slot `{ state: "BLOCKED", startAt, endAt, source: { type: "BLOCK", id }, reason, note }`, with the block's real times even when it crosses the range edge. `from`/`to` are required, `to` must be after `from`, and a range is at most 92 days (400 `validation_failed`).
+- **Supplier routes** follow the fleet rules: another supplier's machine or block returns 404 `unit_not_found` / `block_not_found`.
+- **Public availability** needs no sign-in and only exposes counts: `totalUnits` is the listing's `ACTIVE` machines and `availableUnits` those free for the whole range. Listings that are not `ACTIVE` return 404 `listing_not_found`.
+
+The `maintenance_blocks` table is created by migration `0011`.
 
 ## Reference data
 
@@ -252,6 +301,24 @@ The Expo app (`apps/client`) signs people in and sends them to the area for thei
 - **Tokens.** On web the access token lives only in memory and the refresh token is the api's `httpOnly` cookie, so nothing is readable from script. On iOS and Android the refresh token is kept in `expo-secure-store`. On start the app calls `POST /auth/refresh` to restore the session.
 - **Expired tokens.** The api client (`api/client.ts`) retries a request once after a 401 by refreshing. Concurrent 401s share one refresh, because each refresh rotates the token. If the refresh itself is rejected the user is signed out.
 - **Routing.** `features/auth/routing.ts` decides every redirect: signed-out users go to `/sign-in`, builders to `/home`, suppliers to `/supplier`, and suppliers without a company profile to `/onboarding` until they create one. Each role is kept out of the other's area. `ADMIN` accounts are signed out with a notice for now.
+
+### Screens
+
+| Route                                      | Who      | What                                                                                                                   |
+| ------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `/supplier/company`                        | supplier | edit the company display name                                                                                          |
+| `/supplier/fleet/listings`                 | supplier | own listings with a status filter                                                                                      |
+| `/supplier/fleet/listings/new`, `.../[id]` | supplier | create and edit a listing (model and city pickers), publish/deactivate, and add, reorder, set cover and delete photos  |
+| `/find`                                    | builder  | active listings, newest first, filtered by city, category, manufacturer, price range and text; filters live in the URL |
+| `/equipment`                               | builder  | equipment models by category and manufacturer                                                                          |
+| `/listing/[id]`, `/equipment/[id]`         | both     | listing detail with photos and model specifications; model detail with its active listings                             |
+
+- **Data.** Screens fetch with TanStack Query; after any create, edit, publish, deactivate or photo change the listing queries are invalidated so lists refresh by themselves.
+- **Validation.** The listing form is checked against the shared contract before any request, and per-field api errors are shown under the field. Api messages (for example a 409 on publish) are shown as-is.
+- **Photos.** Picked with `expo-image-picker` (photo library on iOS/Android, file picker on web). Each photo is checked for type, size (`MAX_LISTING_PHOTO_BYTES`, 8 MB, kept in step with the api's `LISTING_MEDIA_MAX_BYTES`) and the 10-photo limit, then uploaded one at a time so one bad photo doesn't stop the rest. Photos of draft and inactive listings are only served to the owner, so `AuthImage` sends the access token (a header on native, a fetched blob on web).
+- **Specifications.** Values are shown with their unit and marked verified or unverified; anything unknown shows "Not known", never a zero or a guess.
+- **Prices.** Shown in rupees with Indian digit grouping, e.g. `₹1,00,000.00`.
+- **Layout.** Screens adapt between phone and wide (≥ 768 px) layouts and follow the light/dark theme.
 
 ## Scripts
 

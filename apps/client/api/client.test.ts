@@ -1,7 +1,7 @@
 import type { ClientKind } from '@ee/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthStorage } from '../platform/types';
-import { createApiClient } from './client';
+import { createApiClient, toQueryString } from './client';
 import { ApiError } from './errors';
 
 const BASE = 'http://api.test';
@@ -243,5 +243,74 @@ describe('createApiClient', () => {
     });
     expect(storage.getAccessToken()).toBe('a1');
     await expect(storage.getRefreshToken()).resolves.toBe('r1');
+  });
+});
+
+describe('listing endpoints', () => {
+  const LISTING = '11111111-1111-4111-8111-111111111111';
+  const MEDIA = '22222222-2222-4222-8222-222222222222';
+  const media = (id: string, position: number) => ({
+    id,
+    url: `/equipment-listings/${LISTING}/media/${id}`,
+    originalFilename: 'photo.jpg',
+    mimeType: 'image/jpeg',
+    sizeBytes: 1024,
+    position,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  });
+
+  it('reorders photos with PUT and a JSON body', async () => {
+    const { api, calls } = setup(
+      'native',
+      (_url, init) =>
+        init.method === 'PUT' ? json(200, { items: [media(MEDIA, 0)] }) : json(404, {}),
+      { access: 'fresh' },
+    );
+    await api.listingMedia.reorder(LISTING, [MEDIA]);
+    const [, init] = calls(`/supplier/listings/${LISTING}/media/order`)[0]!;
+    expect(init!.method).toBe('PUT');
+    expect(JSON.parse(init!.body as string)).toEqual({ mediaIds: [MEDIA] });
+    expect((init!.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+  });
+
+  it('deletes a photo and resolves on 204', async () => {
+    const { api, calls } = setup('native', () => new Response(null, { status: 204 }), {
+      access: 'fresh',
+    });
+    await expect(api.listingMedia.remove(LISTING, MEDIA)).resolves.toBeUndefined();
+    expect(calls(`/supplier/listings/${LISTING}/media/${MEDIA}`)[0]![1]!.method).toBe('DELETE');
+  });
+
+  it('uploads a photo as multipart without forcing a Content-Type', async () => {
+    const { api, calls } = setup('web', () => json(201, media(MEDIA, 0)), { access: 'fresh' });
+    const file = new Blob(['jpeg-bytes'], { type: 'image/jpeg' });
+    await api.listingMedia.upload(LISTING, file);
+    const [, init] = calls(`/supplier/listings/${LISTING}/media`)[0]!;
+    expect(init!.body).toBeInstanceOf(FormData);
+    expect((init!.body as FormData).get('file')).toBeInstanceOf(Blob);
+    const headers = init!.headers as Record<string, string>;
+    expect(headers['Content-Type']).toBeUndefined();
+    expect(headers.Authorization).toBe('Bearer fresh');
+  });
+
+  it('browses public listings with a query string and no token', async () => {
+    const { api, fetchMock } = setup(
+      'native',
+      () => json(200, { items: [], total: 0, limit: 20, offset: 20 }),
+      { access: 'fresh' },
+    );
+    await api.listings.browse({ city: 'IN-HYD', minPrice: 100, limit: 20, offset: 20 });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe(
+      `${BASE}/equipment-listings?city=IN-HYD&minPrice=100&limit=20&offset=20`,
+    );
+    expect(bearer(init!)).toBeUndefined();
+  });
+});
+
+describe('toQueryString', () => {
+  it('skips empty values and encodes the rest', () => {
+    expect(toQueryString({ a: 'x y', b: undefined, c: '', d: 0, e: null })).toBe('?a=x+y&d=0');
+    expect(toQueryString({})).toBe('');
   });
 });
