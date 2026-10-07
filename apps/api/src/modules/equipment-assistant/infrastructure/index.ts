@@ -1,5 +1,1 @@
-export {
-  assistantConversations,
-  assistantMessages,
-  chatRole,
-} from '../../../platform/database/schema';
+export { DrizzleAssistantRepository } from './drizzle-assistant.repository';

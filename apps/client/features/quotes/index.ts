@@ -1,1 +1,1 @@
-export {};
+export { QuoteBreakdown } from './QuoteBreakdown';

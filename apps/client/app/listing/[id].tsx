@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import { ApiError } from '../../api';
 import { formErrorsFromApi, useSession } from '../../features/auth';
@@ -17,7 +17,8 @@ import {
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { api } = useSession();
+  const { api, snapshot } = useSession();
+  const router = useRouter();
   const theme = useTheme();
   const wide = useIsWide();
 
@@ -50,6 +51,7 @@ export default function ListingDetailScreen() {
   }
 
   const item = listing.data;
+  const isBuilder = snapshot.status === 'signedIn' && snapshot.role === 'BUILDER';
   const muted = { color: theme.colors.textMuted, fontSize: theme.fontSize.md } as const;
 
   return (
@@ -89,10 +91,14 @@ export default function ListingDetailScreen() {
             {item.model.manufacturer.name} {item.model.modelName} ·{' '}
             {item.model.category.displayName}
           </Link>
-          <Button title="Request equipment" disabled onPress={() => undefined} />
-          <Text style={{ color: theme.colors.textMuted, fontSize: theme.fontSize.sm }}>
-            Requesting equipment is coming soon.
-          </Text>
+          {isBuilder ? (
+            <Button
+              title="Request equipment"
+              onPress={() =>
+                router.push({ pathname: '/request/[listingId]', params: { listingId: item.id } })
+              }
+            />
+          ) : null}
         </View>
       </View>
       <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.md }}>
