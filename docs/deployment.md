@@ -27,6 +27,13 @@ The api validates these on startup (`apps/api/src/platform/config/env.ts`) and e
 | `CORS_ORIGINS`            | no       | empty (CORS off)          | `https://app.example.com,http://localhost:8081` | comma-separated origins allowed to call the api from a browser                           |
 | `LISTING_MEDIA_DIR`       | no       | `./storage/listing-media` | `/data/listing-media`                           | directory for uploaded listing photos; relative paths resolve from the working directory |
 | `LISTING_MEDIA_MAX_BYTES` | no       | `8388608` (8 MB)          | `5242880`                                       | largest accepted listing photo, in bytes                                                 |
+| `GEMINI_API_KEY`          | no       | unset (assistants off)    | your Google AI Studio key                       | key for both AI assistants; without it their message endpoints answer 503                |
+| `GEMINI_CHAT_MODEL`       | no       | `gemini-2.5-flash`        | `gemini-2.5-pro`                                | chat and tool-calling model                                                              |
+| `GEMINI_EMBEDDING_MODEL`  | no       | `gemini-embedding-001`    | `gemini-embedding-001`                          | embedding model for the knowledge ingest (768 dimensions)                                |
+| `AI_TIMEOUT_MS`           | no       | `20000`                   | `30000`                                         | timeout for each AI request, in milliseconds                                             |
+| `AI_PROVIDER`             | no       | `gemini`                  | `fake`                                          | `gemini`, or `fake` for the deterministic offline provider used by tests                 |
+
+Voice variables are documented separately with the voice feature. Never commit a real `GEMINI_API_KEY`; set it on the host or in the git-ignored `apps/api/.env`. More on the assistants: [assistants.md](assistants.md).
 
 The image sets `NODE_ENV=production` and `PORT=3000`; override either on the host.
 
