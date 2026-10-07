@@ -24,6 +24,20 @@ export interface NewNotification {
   tone: NotificationTone;
 }
 
+/** A notification to send; `tone` defaults to the kind's usual tone. */
+export type NotificationDraft = Omit<NewNotification, 'tone'> & { tone?: NotificationTone };
+
+export const NOTIFICATION_TONES = {
+  QUOTE_RECEIVED: 'waiting',
+  JOB_VIEWED: 'neutral',
+  REQUEST_DECLINED: 'neutral',
+  BOOKING_CONFIRMED: 'good',
+  REQUEST_RECEIVED: 'waiting',
+  QUOTE_ACCEPTED: 'good',
+  QUOTE_LOST: 'neutral',
+  REQUEST_WITHDRAWN: 'neutral',
+} as const satisfies Record<NotificationKind, NotificationTone>;
+
 export interface NotificationListQuery {
   unreadOnly: boolean;
   limit: number;

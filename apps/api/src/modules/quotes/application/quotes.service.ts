@@ -29,7 +29,8 @@ import {
 } from '../../../platform/database/schema';
 import { busyUnitIds, type Executor } from '../../availability/infrastructure/busy-units';
 import { rentalRange } from '../../bookings/domain/booking';
-import { notify, type NotificationInput } from '../../rental-requests/infrastructure/notify';
+import { NotificationsService } from '../../notifications/application';
+import type { NotificationDraft } from '../../notifications/domain';
 import { requestHref } from '../../rental-requests/application/rental-requests.service';
 import {
   IncompleteQuoteError,
@@ -72,6 +73,7 @@ export class QuotesService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly notifications: NotificationsService,
   ) {}
 
   getFor(viewer: QuoteViewer, id: string): Promise<QuoteDto> {
@@ -175,8 +177,7 @@ export class QuotesService {
         .update(quotes)
         .set({ status: 'SENT', sentAt: now, updatedAt: now })
         .where(eq(quotes.id, id));
-      await notify(
-        tx,
+      await this.notifications.notify(
         [
           {
             accountId: request.builderAccountId,
@@ -185,7 +186,7 @@ export class QuotesService {
             href: quoteHref(id),
           },
         ],
-        now,
+        tx,
       );
     });
     return this.get(viewer, id);
@@ -255,7 +256,7 @@ export class QuotesService {
           })
           .returning({ id: bookings.id });
 
-        const notes: NotificationInput[] = [
+        const notes: NotificationDraft[] = [
           {
             accountId: request.supplierAccountId,
             kind: 'QUOTE_ACCEPTED',
@@ -273,7 +274,7 @@ export class QuotesService {
         if (request.requirementId) {
           notes.push(...(await awardRequirement(tx, request, id, now)));
         }
-        await notify(tx, notes, now);
+        await this.notifications.notify(notes, tx);
       })
       .catch((error: unknown) => {
         if (isExclusionViolation(error)) throw new UnitUnavailableError();
@@ -384,7 +385,7 @@ async function awardRequirement(
   request: RequestContext,
   quoteId: string,
   now: Date,
-): Promise<NotificationInput[]> {
+): Promise<NotificationDraft[]> {
   const requirementId = request.requirementId!;
   const [requirement] = await tx
     .update(requirements)
@@ -430,7 +431,7 @@ async function awardRequirement(
     );
   const ownerOf = new Map(owners.map((o) => [o.listingId, o.accountId]));
   const title = requirement?.title ?? 'the requirement';
-  return withdrawn.map((r): NotificationInput =>
+  return withdrawn.map((r): NotificationDraft =>
     quoted.has(r.id)
       ? {
           accountId: ownerOf.get(r.listingId)!,

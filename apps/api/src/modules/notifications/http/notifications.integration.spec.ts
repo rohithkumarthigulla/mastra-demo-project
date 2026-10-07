@@ -74,6 +74,7 @@ async function createApp() {
   return {
     request,
     notify,
+    service,
     supplier: tokens.signAccessToken({ accountId: SUPPLIER, role: 'SUPPLIER' }).accessToken,
     builder: tokens.signAccessToken({ accountId: BUILDER, role: 'BUILDER' }).accessToken,
   };
@@ -171,5 +172,21 @@ describe('notifications', () => {
       await t.request('GET', '/notifications', t.builder)
     ).json<NotificationPageDto>();
     assert.equal(theirs.unreadCount, 1);
+  });
+
+  it("defaults the tone from the kind unless the caller sets one", async () => {
+    const t = await createApp();
+    await t.service.notify([
+      { accountId: BUILDER, kind: 'BOOKING_CONFIRMED', title: 'default', href: '/bookings' },
+    ]);
+    await t.service.notify([
+      { accountId: BUILDER, kind: 'BOOKING_CONFIRMED', title: 'explicit', tone: 'neutral' },
+    ]);
+    const tones = Object.fromEntries(
+      (await t.request('GET', '/notifications', t.builder))
+        .json<NotificationPageDto>()
+        .items.map((n) => [n.title, n.tone]),
+    );
+    assert.deepEqual(tones, { default: 'good', explicit: 'neutral' });
   });
 });

@@ -1,5 +1,7 @@
 export {
+  NOTIFICATION_TONES,
   NotificationNotFoundError,
+  type NotificationDraft,
   type DbExecutor,
   type NewNotification,
   type Notification,

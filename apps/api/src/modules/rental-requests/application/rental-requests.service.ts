@@ -31,7 +31,7 @@ import {
   RentalRequestNotFoundError,
   RentalRequestNotPendingError,
 } from '../domain/errors';
-import { notify } from '../infrastructure/notify';
+import { NotificationsService } from '../../notifications/application';
 import {
   findRequestDto,
   listRequestDtos,
@@ -48,6 +48,7 @@ export class RentalRequestsService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(accountId: string, body: CreateRentalRequest): Promise<RentalRequestDto> {
@@ -112,8 +113,7 @@ export class RentalRequestsService {
         pricePerDay: readNumeric(listing.pricePerDay)!,
         now,
       });
-      await notify(
-        tx,
+      await this.notifications.notify(
         [
           {
             accountId: listing.supplierAccountId,
@@ -123,7 +123,7 @@ export class RentalRequestsService {
             href: requestHref(requestId),
           },
         ],
-        now,
+        tx,
       );
       return requestId;
     });
@@ -171,8 +171,7 @@ export class RentalRequestsService {
     await this.db.transaction(async (tx) => {
       await this.closePending(tx, id, { status: 'CANCELLED', updatedAt: now });
       const supplierAccountId = await this.supplierAccountOf(tx, id);
-      await notify(
-        tx,
+      await this.notifications.notify(
         [
           {
             accountId: supplierAccountId,
@@ -181,7 +180,7 @@ export class RentalRequestsService {
             href: requestHref(id),
           },
         ],
-        now,
+        tx,
       );
     });
     return this.get(viewer, id);
@@ -201,8 +200,7 @@ export class RentalRequestsService {
         declineReason: body.reason ?? null,
         updatedAt: now,
       });
-      await notify(
-        tx,
+      await this.notifications.notify(
         [
           {
             accountId: builderAccountId,
@@ -212,7 +210,7 @@ export class RentalRequestsService {
             href: requestHref(id),
           },
         ],
-        now,
+        tx,
       );
     });
     return this.get(viewer, id);
@@ -231,8 +229,7 @@ export class RentalRequestsService {
           .where(and(eq(rentalRequests.id, id), isNull(rentalRequests.viewedAt)))
           .returning({ builderAccountId: rentalRequests.builderAccountId });
         if (!first) return;
-        await notify(
-          tx,
+        await this.notifications.notify(
           [
             {
               accountId: first.builderAccountId,
@@ -241,7 +238,7 @@ export class RentalRequestsService {
               href: requestHref(id),
             },
           ],
-          now,
+          tx,
         );
       });
     }
