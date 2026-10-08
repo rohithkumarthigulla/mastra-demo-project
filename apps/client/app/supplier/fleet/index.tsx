@@ -72,9 +72,7 @@ export default function SupplierFleetScreen() {
             onPress={() => router.push('/supplier/fleet/units/new')}
           />
         </View>
-        {(yards.data ?? []).length === 0 && !yards.isLoading ? (
-          <Muted>Add a yard before adding machines.</Muted>
-        ) : null}
+        {yards.data?.length === 0 ? <Muted>Add a yard before adding machines.</Muted> : null}
         {units.isLoading ? (
           <LoadingIndicator />
         ) : units.error ? (

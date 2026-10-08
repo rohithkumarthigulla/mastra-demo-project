@@ -13,6 +13,7 @@ import {
   listingToForm,
   PhotoManager,
   RateCardEditor,
+  SectionTitle,
   useRefreshListings,
   validateListingForm,
 } from '../../../../features/supplier';
@@ -172,11 +173,7 @@ export default function EditListingScreen() {
             gap: theme.spacing.md,
           }}
         >
-          <Text
-            style={{ color: theme.colors.text, fontSize: theme.fontSize.lg, fontWeight: '600' }}
-          >
-            Details
-          </Text>
+          <SectionTitle>Details</SectionTitle>
           <ListingEditor
             key={current.updatedAt}
             initial={listingToForm(current)}
