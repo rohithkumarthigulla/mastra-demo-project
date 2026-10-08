@@ -20,7 +20,11 @@ export function Card({ title, subtitle, aside, children, onPress }: CardProps) {
         <View style={{ flex: 1, gap: 2 }}>
           <Text
             numberOfLines={2}
-            style={{ color: theme.colors.text, fontSize: theme.fontSize.md, fontWeight: '600' }}
+            style={{
+              color: theme.colors.text,
+              fontSize: theme.fontSize.md,
+              fontWeight: theme.fontWeight.semibold,
+            }}
           >
             {title}
           </Text>

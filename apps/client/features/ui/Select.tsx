@@ -70,16 +70,24 @@ export function Select({
   const inputStyle = {
     color: theme.colors.text,
     backgroundColor: theme.colors.surface,
-    borderColor: error ? theme.colors.danger : theme.colors.border,
+    borderColor: error ? theme.colors.danger : theme.colors.borderStrong,
     borderWidth: 1,
     borderRadius: theme.radius.sm,
     paddingHorizontal: theme.spacing.sm + 4,
     paddingVertical: theme.spacing.sm + 2,
+    minHeight: theme.size.touch,
+    justifyContent: 'center' as const,
   };
 
   return (
     <View style={{ gap: theme.spacing.xs }}>
-      <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.sm, fontWeight: '500' }}>
+      <Text
+        style={{
+          color: theme.colors.text,
+          fontSize: theme.fontSize.sm,
+          fontWeight: theme.fontWeight.medium,
+        }}
+      >
         {label}
       </Text>
       <Pressable
@@ -116,7 +124,11 @@ export function Select({
             ]}
           >
             <Text
-              style={{ color: theme.colors.text, fontSize: theme.fontSize.lg, fontWeight: '600' }}
+              style={{
+                color: theme.colors.text,
+                fontSize: theme.fontSize.lg,
+                fontWeight: theme.fontWeight.semibold,
+              }}
             >
               {label}
             </Text>
@@ -132,7 +144,7 @@ export function Select({
               }}
               style={[
                 inputStyle,
-                { borderColor: theme.colors.border, fontSize: theme.fontSize.md },
+                { borderColor: theme.colors.borderStrong, fontSize: theme.fontSize.md },
               ]}
             />
             {loading ? <ActivityIndicator color={theme.colors.primary} /> : null}
@@ -151,8 +163,11 @@ export function Select({
               renderItem={({ item }) => (
                 <Pressable
                   accessibilityRole="button"
+                  accessibilityState={{ selected: item.value === value }}
                   onPress={() => choose(item.value)}
                   style={({ pressed }) => ({
+                    minHeight: theme.size.touch,
+                    justifyContent: 'center',
                     paddingVertical: theme.spacing.sm,
                     paddingHorizontal: theme.spacing.sm,
                     borderRadius: theme.radius.sm,

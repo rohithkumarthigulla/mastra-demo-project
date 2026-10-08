@@ -17,7 +17,13 @@ export function EmptyState({
     <View
       style={{ alignItems: 'center', gap: theme.spacing.sm, paddingVertical: theme.spacing.xl }}
     >
-      <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.lg, fontWeight: '600' }}>
+      <Text
+        style={{
+          color: theme.colors.text,
+          fontSize: theme.fontSize.lg,
+          fontWeight: theme.fontWeight.semibold,
+        }}
+      >
         {title}
       </Text>
       {message ? (

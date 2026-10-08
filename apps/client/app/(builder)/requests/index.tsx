@@ -85,7 +85,7 @@ export default function MyRequestsScreen() {
             >
               <StageBar state={requestStage(request)} compact />
               {request.latestQuote && requestStage(request).current !== 'requested' ? (
-                <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+                <Text style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}>
                   Quote: {formatRupees(request.latestQuote.total)}
                 </Text>
               ) : null}

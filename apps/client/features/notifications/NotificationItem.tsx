@@ -1,13 +1,13 @@
 import type { NotificationDto, NotificationTone } from '@ee/contracts';
 import { Pressable, Text, View } from 'react-native';
 import { formatDateTime } from '../progress/dates';
-import { useTheme } from '../theme';
+import { useTheme, type Theme } from '../theme';
 
-const TONE_COLORS: Record<NotificationTone, string> = {
-  good: '#2e9e4f',
-  waiting: '#e0761a',
-  neutral: '#8a93a3',
-};
+function toneColor(theme: Theme, tone: NotificationTone): string {
+  if (tone === 'good') return theme.tones.positive.text;
+  if (tone === 'waiting') return theme.colors.primary;
+  return theme.colors.borderStrong;
+}
 
 /** One feed row. Role-neutral: tapping it is left to the screen (mark read, follow href). */
 export function NotificationItem({
@@ -40,7 +40,7 @@ export function NotificationItem({
         style={{
           width: 4,
           borderRadius: 2,
-          backgroundColor: TONE_COLORS[notification.tone],
+          backgroundColor: toneColor(theme, notification.tone),
         }}
       />
       <View style={{ flex: 1, gap: 2 }}>
@@ -48,7 +48,7 @@ export function NotificationItem({
           style={{
             color: theme.colors.text,
             fontSize: theme.fontSize.md,
-            fontWeight: unread ? '700' : '400',
+            fontWeight: unread ? theme.fontWeight.bold : theme.fontWeight.regular,
           }}
         >
           {notification.title}

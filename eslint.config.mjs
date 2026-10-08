@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/coverage/**',
       'apps/api/drizzle/**',
       '.artifacts/**',
+      '.claude/**',
     ],
   },
   js.configs.recommended,

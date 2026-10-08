@@ -54,7 +54,11 @@ export function ListingCard({ listing, onPress, owner = false }: ListingCardProp
         {owner ? <ListingStatusBadge status={listing.status} /> : null}
         <Text
           numberOfLines={2}
-          style={{ color: theme.colors.text, fontSize: theme.fontSize.md, fontWeight: '600' }}
+          style={{
+            color: theme.colors.text,
+            fontSize: theme.fontSize.md,
+            fontWeight: theme.fontWeight.semibold,
+          }}
         >
           {listing.title}
         </Text>
@@ -62,7 +66,11 @@ export function ListingCard({ listing, onPress, owner = false }: ListingCardProp
           {listing.model.manufacturer.name} {listing.model.modelName} · {listing.city.name}
         </Text>
         <Text
-          style={{ color: theme.colors.primary, fontSize: theme.fontSize.md, fontWeight: '700' }}
+          style={{
+            color: theme.colors.link,
+            fontSize: theme.fontSize.md,
+            fontWeight: theme.fontWeight.bold,
+          }}
         >
           {formatDailyRate(listing.pricePerDay)}
         </Text>

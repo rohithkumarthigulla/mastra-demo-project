@@ -13,7 +13,11 @@ export function Heading({ title, subtitle }: HeadingProps) {
     <>
       <Text
         accessibilityRole="header"
-        style={{ color: theme.colors.text, fontSize: theme.fontSize.xl, fontWeight: '700' }}
+        style={{
+          color: theme.colors.text,
+          fontSize: theme.fontSize.xl,
+          fontWeight: theme.fontWeight.bold,
+        }}
       >
         {title}
       </Text>

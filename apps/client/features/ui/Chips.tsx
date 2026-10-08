@@ -24,22 +24,24 @@ export function Chips<T extends string>({ label, value, options, onChange }: Chi
           <Pressable
             key={option.value}
             accessibilityRole="radio"
-            accessibilityState={{ selected }}
+            accessibilityState={{ checked: selected }}
             onPress={() => onChange(option.value)}
-            style={{
+            style={({ pressed }) => ({
+              minHeight: theme.size.touch,
+              justifyContent: 'center',
               paddingHorizontal: theme.spacing.md,
-              paddingVertical: theme.spacing.xs + 2,
-              borderRadius: 999,
+              borderRadius: theme.size.touch / 2,
               borderWidth: 1,
-              borderColor: selected ? theme.colors.primary : theme.colors.border,
+              borderColor: selected ? theme.colors.primary : theme.colors.borderStrong,
               backgroundColor: selected ? theme.colors.primary : theme.colors.surface,
-            }}
+              opacity: pressed ? 0.85 : 1,
+            })}
           >
             <Text
               style={{
                 color: selected ? theme.colors.onPrimary : theme.colors.text,
                 fontSize: theme.fontSize.sm,
-                fontWeight: '600',
+                fontWeight: theme.fontWeight.semibold,
               }}
             >
               {option.label}

@@ -17,7 +17,14 @@ export function NotificationBell({ href }: { href: Href }) {
       accessibilityRole="button"
       accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
       onPress={() => router.push(href)}
-      style={{ paddingHorizontal: theme.spacing.sm, flexDirection: 'row', alignItems: 'center' }}
+      style={{
+        minWidth: theme.size.touch,
+        minHeight: theme.size.touch,
+        paddingHorizontal: theme.spacing.sm,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
       <Text style={{ fontSize: theme.fontSize.lg }}>🔔</Text>
       {unread > 0 ? (
@@ -34,7 +41,13 @@ export function NotificationBell({ href }: { href: Href }) {
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>
+          <Text
+            style={{
+              color: theme.colors.onPrimary,
+              fontSize: theme.fontSize.xs,
+              fontWeight: theme.fontWeight.bold,
+            }}
+          >
             {unread > 99 ? '99+' : unread}
           </Text>
         </View>

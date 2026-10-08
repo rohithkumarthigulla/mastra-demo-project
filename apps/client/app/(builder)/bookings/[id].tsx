@@ -1,7 +1,7 @@
 import { BOOKING_CANCEL_REASON_MAX, CANCELLABLE_BOOKING_STATUSES } from '@ee/contracts';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { ApiError } from '../../../api';
 import { formErrorsFromApi } from '../../../features/auth';
 import {
@@ -54,7 +54,7 @@ export default function BookingDetailScreen() {
   const section = {
     color: theme.colors.text,
     fontSize: theme.fontSize.lg,
-    fontWeight: '600',
+    fontWeight: theme.fontWeight.semibold,
   } as const;
 
   const submitCancel = () => {
@@ -86,21 +86,31 @@ export default function BookingDetailScreen() {
         <Field label="City" value={item.listing.city} />
       </View>
       <View style={{ flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap' }}>
-        <Link
-          href={{ pathname: '/listing/[id]', params: { id: item.listing.id } }}
-          style={{ color: theme.colors.primary, fontWeight: '600' }}
-        >
-          View machine
+        <Link href={{ pathname: '/listing/[id]', params: { id: item.listing.id } }} asChild>
+          <Pressable
+            accessibilityRole="link"
+            style={{ minHeight: theme.size.touch, justifyContent: 'center' }}
+          >
+            <Text style={{ color: theme.colors.link, fontWeight: theme.fontWeight.semibold }}>
+              View machine
+            </Text>
+          </Pressable>
         </Link>
-        <Link
-          href={{ pathname: '/quotes/[id]', params: { id: item.quoteId } }}
-          style={{ color: theme.colors.primary, fontWeight: '600' }}
-        >
-          View quote
+        <Link href={{ pathname: '/quotes/[id]', params: { id: item.quoteId } }} asChild>
+          <Pressable
+            accessibilityRole="link"
+            style={{ minHeight: theme.size.touch, justifyContent: 'center' }}
+          >
+            <Text style={{ color: theme.colors.link, fontWeight: theme.fontWeight.semibold }}>
+              View quote
+            </Text>
+          </Pressable>
         </Link>
       </View>
 
-      <Text style={section}>History</Text>
+      <Text accessibilityRole="header" style={section}>
+        History
+      </Text>
       <Timeline entries={bookingTimeline(item)} />
 
       {CANCELLABLE.has(item.status) ? (
