@@ -162,7 +162,11 @@ function Citations({ items }: { items: CitationDto[] }) {
   return (
     <View style={{ gap: 2 }}>
       <Text
-        style={{ color: theme.colors.textMuted, fontSize: theme.fontSize.sm, fontWeight: '600' }}
+        style={{
+          color: theme.colors.textMuted,
+          fontSize: theme.fontSize.sm,
+          fontWeight: theme.fontWeight.semibold,
+        }}
       >
         Sources
       </Text>

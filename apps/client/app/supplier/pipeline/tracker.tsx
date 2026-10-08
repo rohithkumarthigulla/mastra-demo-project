@@ -17,13 +17,25 @@ import {
   type TrackerCard,
 } from '../../../features/supplier';
 import { useTheme } from '../../../features/theme';
-import { ErrorMessage, Heading, LoadingIndicator, Screen, useIsWide } from '../../../features/ui';
+import {
+  Button,
+  EmptyState,
+  ErrorMessage,
+  Heading,
+  LoadingIndicator,
+  Screen,
+  useIsWide,
+} from '../../../features/ui';
 
 const ROUTES = {
   request: '/supplier/pipeline/requests/[id]',
   quote: '/supplier/pipeline/quotes/[id]',
   booking: '/supplier/bookings/[id]',
 } as const;
+
+/** Narrow screens scroll the board sideways; a fixed width keeps one column and a peek in view. */
+const NARROW_COLUMN_WIDTH = 260;
+const WIDE_COLUMN_MIN_WIDTH = 160;
 
 export default function TrackerScreen() {
   const { api } = useSession();
@@ -41,6 +53,7 @@ export default function TrackerScreen() {
     bookings: bookings.data?.items ?? [],
   });
   const summary = summarise(board);
+  const empty = TRACKER_COLUMNS.every((column) => board[column].length === 0);
   const truncated =
     (requests.data?.total ?? 0) > MAX_LIST_LIMIT || (bookings.data?.total ?? 0) > MAX_LIST_LIMIT;
 
@@ -54,7 +67,7 @@ export default function TrackerScreen() {
       <Muted>{item.title}</Muted>
       <Muted>{formatDateRange(item.startDate, item.endDate)}</Muted>
       {item.amount !== null ? (
-        <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+        <Text style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}>
           {formatRupees(item.amount)}
         </Text>
       ) : null}
@@ -66,9 +79,9 @@ export default function TrackerScreen() {
       key={column}
       accessibilityLabel={`${TRACKER_COLUMN_LABELS[column]}, ${summary.counts[column]}`}
       style={{
-        width: wide ? undefined : 260,
+        width: wide ? undefined : NARROW_COLUMN_WIDTH,
         flex: wide ? 1 : undefined,
-        minWidth: wide ? 160 : undefined,
+        minWidth: wide ? WIDE_COLUMN_MIN_WIDTH : undefined,
         gap: theme.spacing.sm,
         padding: theme.spacing.sm,
         borderRadius: theme.radius.md,
@@ -77,7 +90,7 @@ export default function TrackerScreen() {
         borderColor: theme.colors.border,
       }}
     >
-      <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+      <Text style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}>
         {TRACKER_COLUMN_LABELS[column]} · {summary.counts[column]}
       </Text>
       {board[column].length > 0 ? board[column].map(card) : <Muted>Nothing here.</Muted>}
@@ -106,7 +119,18 @@ export default function TrackerScreen() {
           {truncated ? (
             <Muted>Showing the latest {MAX_LIST_LIMIT} requests and bookings.</Muted>
           ) : null}
-          {wide ? (
+          {empty && !error ? (
+            <EmptyState
+              title="Nothing in the pipeline"
+              message="Requests from builders, the quotes you send and the bookings they become all show up here."
+            >
+              <Button
+                title="See rental requests"
+                variant="secondary"
+                onPress={() => router.push('/supplier/pipeline')}
+              />
+            </EmptyState>
+          ) : wide ? (
             <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-start' }}>
               {columns}
             </View>

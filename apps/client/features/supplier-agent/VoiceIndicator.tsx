@@ -11,6 +11,10 @@ const CAPTION: Record<VoiceState['phase'], string> = {
   speaking: 'Speaking… tap to interrupt',
 };
 
+/** The tap area stays above the 44pt minimum; the dot inside leaves room to grow while it pulses. */
+const HIT_SIZE = 56;
+const DOT_SIZE = 40;
+
 /**
  * The call's animated indicator. Its size follows the real microphone level while listening,
  * it pulses while the agent works, and it breathes while speaking.
@@ -64,7 +68,7 @@ export function VoiceIndicator({
   }, [state.phase, level, scale]);
 
   const caption = state.phase === 'thinking' ? state.label : CAPTION[state.phase];
-  const color = state.phase === 'speaking' ? theme.colors.primary : theme.colors.text;
+  const color = state.phase === 'speaking' ? theme.colors.link : theme.colors.text;
 
   return (
     <View
@@ -83,13 +87,18 @@ export function VoiceIndicator({
         accessibilityRole="button"
         accessibilityLabel={state.phase === 'speaking' ? 'Interrupt the reply' : 'End voice'}
         onPress={onTap}
-        style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}
+        style={{
+          width: HIT_SIZE,
+          height: HIT_SIZE,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
       >
         <Animated.View
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
+            width: DOT_SIZE,
+            height: DOT_SIZE,
+            borderRadius: DOT_SIZE / 2,
             backgroundColor: theme.colors.primary,
             opacity: state.phase === 'thinking' ? 0.6 : 1,
             transform: [{ scale }],

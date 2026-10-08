@@ -54,7 +54,7 @@ export function ConfirmDialog({
           onPress={() => {}}
           style={{
             width: '100%',
-            maxWidth: 420,
+            maxWidth: theme.size.column,
             gap: theme.spacing.md,
             padding: theme.spacing.lg,
             borderRadius: theme.radius.md,
@@ -63,7 +63,11 @@ export function ConfirmDialog({
         >
           <Text
             accessibilityRole="header"
-            style={{ color: theme.colors.text, fontSize: theme.fontSize.lg, fontWeight: '600' }}
+            style={{
+              color: theme.colors.text,
+              fontSize: theme.fontSize.lg,
+              fontWeight: theme.fontWeight.semibold,
+            }}
           >
             {title}
           </Text>

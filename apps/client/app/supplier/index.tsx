@@ -14,7 +14,7 @@ export default function SupplierHomeScreen() {
     <Screen>
       <Stack.Screen options={{ title: 'Supplier' }} />
       <Heading title={`Welcome, ${name}`} subtitle="Manage your fleet and rental pipeline." />
-      <View style={{ gap: theme.spacing.sm, maxWidth: 420 }}>
+      <View style={{ gap: theme.spacing.sm, maxWidth: theme.size.column }}>
         <Button title="Pipeline" onPress={() => router.push('/supplier/pipeline/tracker')} />
         <Button
           title="Rental requests"

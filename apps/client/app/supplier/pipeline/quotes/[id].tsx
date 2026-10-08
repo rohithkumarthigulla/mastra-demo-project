@@ -110,7 +110,7 @@ export default function QuoteScreen() {
           <Field
             label="Total"
             value={
-              <Text style={{ color: theme.colors.text, fontWeight: '700' }}>
+              <Text style={{ color: theme.colors.text, fontWeight: theme.fontWeight.bold }}>
                 {formatRupees(q.total)}
               </Text>
             }
@@ -130,7 +130,7 @@ export default function QuoteScreen() {
       {header}
       {q.status === 'PENDING_APPROVAL' || q.autoDrafted ? (
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+          <Text style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}>
             Awaiting your approval
           </Text>
           <Muted>
