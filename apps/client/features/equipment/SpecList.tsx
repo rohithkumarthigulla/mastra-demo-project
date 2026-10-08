@@ -35,7 +35,8 @@ export function SpecList({ specifications }: { specifications: EquipmentSpecific
             flexWrap: 'wrap',
             alignItems: 'center',
             gap: theme.spacing.sm,
-            padding: theme.spacing.sm + 2,
+            paddingVertical: theme.spacing.sm,
+            paddingHorizontal: theme.spacing.md,
             backgroundColor: theme.colors.surface,
             borderTopWidth: i === 0 ? 0 : 1,
             borderTopColor: theme.colors.border,
@@ -45,7 +46,7 @@ export function SpecList({ specifications }: { specifications: EquipmentSpecific
           <Text
             style={{
               color: row.known ? theme.colors.text : theme.colors.textMuted,
-              fontWeight: row.known ? '600' : '400',
+              fontWeight: row.known ? theme.fontWeight.semibold : theme.fontWeight.regular,
             }}
           >
             {row.value}
