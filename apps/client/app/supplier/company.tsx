@@ -59,13 +59,37 @@ export default function SupplierCompanyScreen() {
     save.mutate(parsed.data);
   }
 
-  if (profile.isLoading) return <LoadingIndicator />;
+  if (profile.isLoading) {
+    return (
+      <Screen centered>
+        <Stack.Screen options={{ title: 'Company profile' }} />
+        <LoadingIndicator />
+      </Screen>
+    );
+  }
+  // Never show the form without the saved name: saving a blank field would overwrite it.
+  if (!profile.data) {
+    return (
+      <Screen centered>
+        <Stack.Screen options={{ title: 'Company profile' }} />
+        <ErrorMessage
+          message={formErrorsFromApi(profile.error).form ?? 'Could not load your company profile.'}
+        />
+        <Button
+          title="Try again"
+          variant="secondary"
+          loading={profile.isFetching}
+          onPress={() => void profile.refetch()}
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen centered>
       <Stack.Screen options={{ title: 'Company profile' }} />
       <Heading title="Company profile" subtitle="Builders see this name on your listings." />
-      <ErrorMessage message={profile.error ? formErrorsFromApi(profile.error).form : errors.form} />
+      <ErrorMessage message={errors.form} />
       <TextField
         label="Business name"
         value={displayName}

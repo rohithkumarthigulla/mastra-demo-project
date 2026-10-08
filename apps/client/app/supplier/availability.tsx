@@ -118,7 +118,15 @@ export default function AvailabilityScreen() {
       {calendar.isLoading ? (
         <LoadingIndicator />
       ) : calendar.error ? (
-        <ErrorMessage message={supplierErrorMessage(calendar.error)} />
+        <View style={{ gap: theme.spacing.sm, alignItems: 'flex-start' }}>
+          <ErrorMessage message={supplierErrorMessage(calendar.error)} />
+          <Button
+            title="Try again"
+            variant="secondary"
+            loading={calendar.isFetching}
+            onPress={() => void calendar.refetch()}
+          />
+        </View>
       ) : !calendar.data || calendar.data.lanes.length === 0 ? (
         <EmptyState
           title="No machines yet"

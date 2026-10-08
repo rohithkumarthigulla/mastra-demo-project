@@ -7,6 +7,7 @@ import { calendarDays, layoutLane, type SlotSegment } from './calendarLayout';
 import type { DayRange } from './dateRange';
 
 const LANE_HEIGHT = 44;
+const SEGMENT_INSET = 6;
 
 interface AvailabilityCalendarProps {
   range: DayRange;
@@ -56,7 +57,10 @@ export function AvailabilityCalendar({
               borderColor: theme.colors.border,
             }}
           >
-            <Text numberOfLines={1} style={{ color: theme.colors.text, fontWeight: '600' }}>
+            <Text
+              numberOfLines={1}
+              style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}
+            >
               {lane.label ?? 'Unlabelled'}
             </Text>
             <Text
@@ -76,7 +80,7 @@ export function AvailabilityCalendar({
                 key={day.date}
                 style={{ width: dayWidth, alignItems: 'center', justifyContent: 'flex-end' }}
               >
-                <Text style={{ color: theme.colors.textMuted, fontSize: 11 }}>
+                <Text style={{ color: theme.colors.textMuted, fontSize: theme.fontSize.xs }}>
                   {day.month ?? ' '}
                 </Text>
                 <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.sm }}>
@@ -101,14 +105,16 @@ export function AvailabilityCalendar({
                     accessibilityRole="button"
                     accessibilityLabel={`${lane.label ?? 'Machine'}: ${label} ${segment.firstDate} to ${segment.lastDate}`}
                     onPress={() => onPressSegment(lane.unitId, segment)}
+                    // The bar is inset for legibility; the hit area still spans the full lane.
+                    hitSlop={{ top: SEGMENT_INSET, bottom: SEGMENT_INSET }}
                     style={({ pressed }) => ({
                       position: 'absolute',
-                      top: 6,
-                      bottom: 6,
+                      top: SEGMENT_INSET,
+                      bottom: SEGMENT_INSET,
                       left: segment.startCol * dayWidth + 1,
                       width: segment.span * dayWidth - 2,
                       justifyContent: 'center',
-                      paddingHorizontal: 4,
+                      paddingHorizontal: theme.spacing.xs,
                       backgroundColor: colours[segment.state].background,
                       opacity: pressed ? 0.7 : 1,
                       borderTopLeftRadius: segment.clippedStart ? 0 : theme.radius.sm,
@@ -121,8 +127,8 @@ export function AvailabilityCalendar({
                       numberOfLines={1}
                       style={{
                         color: colours[segment.state].text,
-                        fontSize: 11,
-                        fontWeight: '600',
+                        fontSize: theme.fontSize.xs,
+                        fontWeight: theme.fontWeight.semibold,
                       }}
                     >
                       {label}

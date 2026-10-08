@@ -42,6 +42,7 @@ export default function EditUnitScreen() {
   if (unit.isLoading) {
     return (
       <Screen centered>
+        <Stack.Screen options={{ title: 'Machine' }} />
         <LoadingIndicator />
       </Screen>
     );
@@ -49,7 +50,13 @@ export default function EditUnitScreen() {
   if (!unit.data) {
     return (
       <Screen centered>
+        <Stack.Screen options={{ title: 'Machine' }} />
         <ErrorMessage message={supplierErrorMessage(unit.error) ?? 'Machine not found.'} />
+        <Button
+          title="Back to fleet"
+          variant="secondary"
+          onPress={() => router.replace('/supplier/fleet')}
+        />
       </Screen>
     );
   }

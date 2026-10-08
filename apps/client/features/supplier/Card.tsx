@@ -39,7 +39,11 @@ export function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <Text
       accessibilityRole="header"
-      style={{ color: theme.colors.text, fontSize: theme.fontSize.lg, fontWeight: '600' }}
+      style={{
+        color: theme.colors.text,
+        fontSize: theme.fontSize.lg,
+        fontWeight: theme.fontWeight.semibold,
+      }}
     >
       {children}
     </Text>
@@ -49,7 +53,13 @@ export function SectionTitle({ children }: { children: ReactNode }) {
 export function CardTitle({ children }: { children: ReactNode }) {
   const theme = useTheme();
   return (
-    <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.md, fontWeight: '600' }}>
+    <Text
+      style={{
+        color: theme.colors.text,
+        fontSize: theme.fontSize.md,
+        fontWeight: theme.fontWeight.semibold,
+      }}
+    >
       {children}
     </Text>
   );

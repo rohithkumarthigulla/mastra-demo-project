@@ -7,6 +7,7 @@ import { useSession } from '../auth';
 import { AuthImage } from '../rental';
 import { useTheme } from '../theme';
 import { Badge, Button, ErrorMessage } from '../ui';
+import { Muted, SectionTitle } from './Card';
 import { checkPhotos, move } from './photos';
 import { pickPhotos } from './pickPhotos';
 import { useRefreshListings } from './useRefreshListings';
@@ -66,12 +67,10 @@ export function PhotoManager({ listing }: { listing: EquipmentListingDto }) {
 
   return (
     <View style={{ gap: theme.spacing.sm }}>
-      <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.lg, fontWeight: '600' }}>
+      <SectionTitle>
         Photos ({photos.length}/{MAX_LISTING_PHOTOS})
-      </Text>
-      <Text style={{ color: theme.colors.textMuted, fontSize: theme.fontSize.sm }}>
-        JPEG, PNG or WebP, up to 8 MB each. The first photo is the cover.
-      </Text>
+      </SectionTitle>
+      <Muted>JPEG, PNG or WebP, up to 8 MB each. The first photo is the cover.</Muted>
       {problems.map((problem) => (
         <ErrorMessage key={problem} message={problem} />
       ))}
@@ -98,13 +97,13 @@ export function PhotoManager({ listing }: { listing: EquipmentListingDto }) {
             {i === 0 ? <Badge label="Cover" tone="positive" /> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs }}>
               <PhotoAction
-                label="◀"
+                label="Earlier"
                 hint="Move earlier"
                 disabled={busy || i === 0}
                 onPress={() => moveTo(i, i - 1)}
               />
               <PhotoAction
-                label="▶"
+                label="Later"
                 hint="Move later"
                 disabled={busy || i === photos.length - 1}
                 onPress={() => moveTo(i, i + 1)}
@@ -147,16 +146,21 @@ function PhotoAction({ label, hint, danger = false, disabled, onPress }: PhotoAc
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={hint ?? label}
+      accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={{
+      style={({ pressed }) => ({
+        minHeight: theme.size.touch,
+        minWidth: theme.size.touch,
+        alignItems: 'center',
+        justifyContent: 'center',
         paddingHorizontal: theme.spacing.sm,
-        paddingVertical: 4,
+        paddingVertical: theme.spacing.xs,
         borderRadius: theme.radius.sm,
         borderWidth: 1,
-        borderColor: danger ? theme.colors.danger : theme.colors.border,
-        opacity: disabled ? 0.4 : 1,
-      }}
+        borderColor: danger ? theme.colors.danger : theme.colors.borderStrong,
+        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
+      })}
     >
       <Text
         style={{
