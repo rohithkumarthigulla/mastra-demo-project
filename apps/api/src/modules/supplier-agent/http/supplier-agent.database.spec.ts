@@ -31,7 +31,7 @@ describe('supplier agent rental requests (database)', () => {
       get(FleetService),
       get(AvailabilityService),
       get(EquipmentListingsService),
-      new RentalRequestsService(h.db, systemClock),
+      get(RentalRequestsService),
     );
   });
   afterEach(async () => {

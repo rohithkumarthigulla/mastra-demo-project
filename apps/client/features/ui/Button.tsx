@@ -34,7 +34,8 @@ export function Button({
           paddingVertical: theme.spacing.sm + 4,
           paddingHorizontal: theme.spacing.md,
           backgroundColor: primary ? theme.colors.primary : 'transparent',
-          borderColor: primary ? theme.colors.primary : theme.colors.border,
+          borderColor: primary ? theme.colors.primary : theme.colors.borderStrong,
+          minHeight: theme.size.touch + theme.spacing.xs,
           opacity: inactive ? 0.6 : pressed ? 0.85 : 1,
         },
       ]}
@@ -42,7 +43,13 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (
-        <Text style={[styles.label, { color: textColor, fontSize: theme.fontSize.md }]}>
+        <Text
+          style={{
+            color: textColor,
+            fontSize: theme.fontSize.md,
+            fontWeight: theme.fontWeight.semibold,
+          }}
+        >
           {title}
         </Text>
       )}
@@ -51,6 +58,5 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, minHeight: 48 },
-  label: { fontWeight: '600' },
+  base: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 });

@@ -16,7 +16,7 @@ export default function BuilderHomeScreen() {
     <Screen>
       <Stack.Screen options={{ title: 'Builder' }} />
       <Heading title={`Welcome, ${name}`} subtitle="Find and rent equipment for your projects." />
-      <View style={{ gap: theme.spacing.sm, maxWidth: 420 }}>
+      <View style={{ gap: theme.spacing.sm, maxWidth: theme.size.column }}>
         <Button title="Find equipment" onPress={() => router.push('/find')} />
         <Button
           title="Post a requirement"

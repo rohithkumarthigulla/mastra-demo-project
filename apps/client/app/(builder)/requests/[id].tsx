@@ -1,5 +1,5 @@
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { ApiError } from '../../../api';
 import { formErrorsFromApi } from '../../../features/auth';
 import {
@@ -46,7 +46,7 @@ export default function RequestDetailScreen() {
   const section = {
     color: theme.colors.text,
     fontSize: theme.fontSize.lg,
-    fontWeight: '600',
+    fontWeight: theme.fontWeight.semibold,
   } as const;
 
   return (
@@ -63,19 +63,29 @@ export default function RequestDetailScreen() {
         {item.message ? <Field label="Your message" value={item.message} /> : null}
         {item.declineReason ? <Field label="Declined because" value={item.declineReason} /> : null}
       </View>
-      <Link
-        href={{ pathname: '/listing/[id]', params: { id: item.listing.id } }}
-        style={{ color: theme.colors.primary, fontWeight: '600' }}
-      >
-        View listing
+      <Link href={{ pathname: '/listing/[id]', params: { id: item.listing.id } }} asChild>
+        <Pressable
+          accessibilityRole="link"
+          style={{ minHeight: theme.size.touch, justifyContent: 'center' }}
+        >
+          <Text style={{ color: theme.colors.link, fontWeight: theme.fontWeight.semibold }}>
+            View listing
+          </Text>
+        </Pressable>
       </Link>
 
-      <Text style={section}>Quote</Text>
+      <Text accessibilityRole="header" style={section}>
+        Quote
+      </Text>
       {quote ? (
         <View style={{ gap: theme.spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
             <Text
-              style={{ color: theme.colors.text, fontSize: theme.fontSize.lg, fontWeight: '700' }}
+              style={{
+                color: theme.colors.text,
+                fontSize: theme.fontSize.lg,
+                fontWeight: theme.fontWeight.bold,
+              }}
             >
               {formatRupees(quote.total)}
             </Text>
@@ -96,7 +106,9 @@ export default function RequestDetailScreen() {
         </Text>
       )}
 
-      <Text style={section}>History</Text>
+      <Text accessibilityRole="header" style={section}>
+        History
+      </Text>
       <Timeline entries={requestTimeline(item)} />
 
       {item.status === 'PENDING' ? (

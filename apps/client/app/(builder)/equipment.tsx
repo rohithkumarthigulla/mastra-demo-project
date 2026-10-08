@@ -123,7 +123,7 @@ export default function EquipmentCatalogueScreen() {
                   style={{
                     color: theme.colors.text,
                     fontSize: theme.fontSize.md,
-                    fontWeight: '600',
+                    fontWeight: theme.fontWeight.semibold,
                   }}
                 >
                   {model.modelName}

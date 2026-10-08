@@ -77,7 +77,7 @@ export default function RequirementDetailScreen() {
   const section = {
     color: theme.colors.text,
     fontSize: theme.fontSize.lg,
-    fontWeight: '600',
+    fontWeight: theme.fontWeight.semibold,
   } as const;
   const muted = { color: theme.colors.textMuted, fontSize: theme.fontSize.sm } as const;
 
@@ -124,7 +124,9 @@ export default function RequirementDetailScreen() {
         {item.sentAt ? <Field label="First sent" value={formatDateTime(item.sentAt)} /> : null}
       </View>
 
-      <Text style={section}>Suppliers asked</Text>
+      <Text accessibilityRole="header" style={section}>
+        Suppliers asked
+      </Text>
       {item.invitations.length === 0 ? (
         <Text style={muted}>Not sent to anyone yet. Pick suppliers below.</Text>
       ) : (
@@ -153,7 +155,9 @@ export default function RequirementDetailScreen() {
                   <View
                     style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'center' }}
                   >
-                    <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+                    <Text
+                      style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}
+                    >
                       Quote: {formatRupees(quote.total)}
                     </Text>
                     <QuoteStatusBadge status={quote.status} />
@@ -186,7 +190,9 @@ export default function RequirementDetailScreen() {
 
       {sendable ? (
         <>
-          <Text style={section}>Matching suppliers</Text>
+          <Text accessibilityRole="header" style={section}>
+            Matching suppliers
+          </Text>
           <Text style={muted}>
             Machines in {item.city.name} with a unit free on your dates. You can ask up to{' '}
             {REQUIREMENT_MAX_SUPPLIERS} suppliers in total ({room} left).
@@ -216,6 +222,7 @@ export default function RequirementDetailScreen() {
                       flexDirection: 'row',
                       gap: theme.spacing.sm,
                       alignItems: 'center',
+                      minHeight: theme.size.touch,
                       padding: theme.spacing.sm,
                       borderWidth: 1,
                       borderRadius: theme.radius.md,
@@ -226,16 +233,32 @@ export default function RequirementDetailScreen() {
                   >
                     <View
                       style={{
-                        width: 18,
-                        height: 18,
+                        width: theme.spacing.lg,
+                        height: theme.spacing.lg,
                         borderRadius: theme.radius.sm,
                         borderWidth: 2,
-                        borderColor: checked ? theme.colors.primary : theme.colors.border,
+                        borderColor: checked ? theme.colors.primary : theme.colors.borderStrong,
                         backgroundColor: checked ? theme.colors.primary : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
-                    />
+                    >
+                      {checked ? (
+                        <Text
+                          style={{
+                            color: theme.colors.onPrimary,
+                            fontSize: theme.fontSize.sm,
+                            fontWeight: theme.fontWeight.bold,
+                          }}
+                        >
+                          ✓
+                        </Text>
+                      ) : null}
+                    </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+                      <Text
+                        style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}
+                      >
                         {match.listing.title}
                       </Text>
                       <Text style={muted}>

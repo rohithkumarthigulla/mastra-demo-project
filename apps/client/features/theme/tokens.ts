@@ -1,6 +1,15 @@
 const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const radius = { sm: 6, md: 10 } as const;
-const fontSize = { sm: 13, md: 16, lg: 20, xl: 28 } as const;
+const fontSize = { xs: 11, sm: 13, md: 16, lg: 20, xl: 28 } as const;
+const fontWeight = { regular: '400', medium: '500', semibold: '600', bold: '700' } as const;
+/** Minimum hit area for anything tappable (WCAG 2.5.8 / platform guidelines), and the narrow content column. */
+const size = { touch: 44, column: 420 } as const;
+
+/** Background/text pair for a status badge. */
+export interface Tone {
+  background: string;
+  text: string;
+}
 
 export interface Theme {
   dark: boolean;
@@ -9,14 +18,23 @@ export interface Theme {
     surface: string;
     text: string;
     textMuted: string;
+    /** Decorative dividers and card outlines. */
     border: string;
+    /** Outlines that identify a control (inputs, checkboxes, unselected chips); ≥ 3:1 against surface. */
+    borderStrong: string;
+    /** Brand accent for fills: primary buttons, selected chips, progress. Not for text on the page. */
     primary: string;
     onPrimary: string;
+    /** Accent for text on background/surface (links, prices); the primary hue at ≥ 4.5:1. */
+    link: string;
     danger: string;
   };
+  tones: { neutral: Tone; positive: Tone; warning: Tone };
   spacing: typeof spacing;
   radius: typeof radius;
   fontSize: typeof fontSize;
+  fontWeight: typeof fontWeight;
+  size: typeof size;
 }
 
 export const lightTheme: Theme = {
@@ -27,13 +45,22 @@ export const lightTheme: Theme = {
     text: '#14171c',
     textMuted: '#5b6472',
     border: '#d5d9e0',
+    borderStrong: '#737c8a',
     primary: '#e0761a',
-    onPrimary: '#ffffff',
+    onPrimary: '#14171c',
+    link: '#a8520c',
     danger: '#c62828',
+  },
+  tones: {
+    neutral: { background: '#e7eaef', text: '#3b4350' },
+    positive: { background: '#dcf2e1', text: '#1b6b32' },
+    warning: { background: '#fdecd9', text: '#8a4a0c' },
   },
   spacing,
   radius,
   fontSize,
+  fontWeight,
+  size,
 };
 
 export const darkTheme: Theme = {
@@ -44,11 +71,20 @@ export const darkTheme: Theme = {
     text: '#eef0f3',
     textMuted: '#9aa3b1',
     border: '#2f353e',
+    borderStrong: '#6b7380',
     primary: '#f08a2e',
     onPrimary: '#14171c',
+    link: '#f08a2e',
     danger: '#ef5350',
+  },
+  tones: {
+    neutral: { background: '#2a3039', text: '#c4cad4' },
+    positive: { background: '#173823', text: '#7fd897' },
+    warning: { background: '#3d2a14', text: '#f5b56e' },
   },
   spacing,
   radius,
   fontSize,
+  fontWeight,
+  size,
 };
