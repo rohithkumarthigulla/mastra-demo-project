@@ -1,7 +1,7 @@
 import { loginRequestSchema } from '@ee/contracts';
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Button, ErrorMessage, Heading, TextField } from '../ui';
 import { useTheme } from '../theme';
 import { fieldErrorsFromZod, formErrorsFromApi, type FormErrors } from './formErrors';
@@ -60,12 +60,27 @@ export function SignInForm() {
         error={errors.fields.password}
       />
       <Button title="Sign in" loading={submitting} onPress={() => void submit()} />
-      <Text style={{ color: theme.colors.textMuted, textAlign: 'center' }}>
-        New here?{' '}
-        <Link href="/register" replace style={{ color: theme.colors.primary, fontWeight: '600' }}>
-          Create an account
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+        }}
+      >
+        <Text style={{ color: theme.colors.textMuted }}>New here?</Text>
+        <Link href="/register" replace asChild>
+          <Pressable
+            accessibilityRole="link"
+            style={{ minHeight: theme.size.touch, justifyContent: 'center' }}
+          >
+            <Text style={{ color: theme.colors.link, fontWeight: theme.fontWeight.semibold }}>
+              Create an account
+            </Text>
+          </Pressable>
         </Link>
-      </Text>
+      </View>
     </>
   );
 }

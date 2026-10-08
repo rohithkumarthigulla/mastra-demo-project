@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { ApiError } from '../../api';
 import { formErrorsFromApi, useSession } from '../../features/auth';
 import { SpecList } from '../../features/equipment';
@@ -12,7 +12,7 @@ import {
   useManufacturers,
 } from '../../features/rental';
 import { useTheme } from '../../features/theme';
-import { ErrorMessage, Heading, LoadingIndicator, Screen } from '../../features/ui';
+import { EmptyState, ErrorMessage, Heading, LoadingIndicator, Screen } from '../../features/ui';
 
 export default function EquipmentModelScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -50,7 +50,7 @@ export default function EquipmentModelScreen() {
   const section = {
     color: theme.colors.text,
     fontSize: theme.fontSize.lg,
-    fontWeight: '600',
+    fontWeight: theme.fontWeight.semibold,
   } as const;
 
   return (
@@ -63,9 +63,22 @@ export default function EquipmentModelScreen() {
           undefined
         }
       />
-      <Text style={section}>Specifications</Text>
+      <Text accessibilityRole="header" style={section}>
+        Specifications
+      </Text>
       <SpecList specifications={m.specifications} />
-      <Text style={section}>Available to rent</Text>
+      <Text accessibilityRole="header" style={section}>
+        Available to rent
+      </Text>
+      {listings.isLoading ? (
+        <View
+          accessibilityLabel="Loading listings"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}
+        >
+          <ActivityIndicator color={theme.colors.primary} />
+          <Text style={{ color: theme.colors.textMuted }}>Loading listings…</Text>
+        </View>
+      ) : null}
       <ErrorMessage message={listings.error ? formErrorsFromApi(listings.error).form : null} />
       {listings.data && listings.data.items.length > 0 ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md }}>
@@ -78,9 +91,10 @@ export default function EquipmentModelScreen() {
           ))}
         </View>
       ) : listings.data ? (
-        <Text style={{ color: theme.colors.textMuted }}>
-          No suppliers are listing this model right now.
-        </Text>
+        <EmptyState
+          title="No listings yet"
+          message="No suppliers are listing this model right now."
+        />
       ) : null}
     </Screen>
   );

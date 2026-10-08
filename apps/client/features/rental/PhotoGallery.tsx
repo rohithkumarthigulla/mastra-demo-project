@@ -48,6 +48,7 @@ export function PhotoGallery({ photos, title, authenticated = false }: PhotoGall
               key={photo.id}
               accessibilityRole="button"
               accessibilityLabel={`Show photo ${i + 1}`}
+              accessibilityState={{ selected: i === index }}
               onPress={() => setIndex(i)}
               style={{
                 borderWidth: 2,

@@ -55,15 +55,18 @@ export function RegisterForm() {
               onPress={() => setRole(option.role)}
               style={{
                 flex: 1,
+                minHeight: theme.size.touch,
                 gap: theme.spacing.xs,
                 padding: theme.spacing.md,
                 borderRadius: theme.radius.md,
                 borderWidth: selected ? 2 : 1,
-                borderColor: selected ? theme.colors.primary : theme.colors.border,
+                borderColor: selected ? theme.colors.primary : theme.colors.borderStrong,
                 backgroundColor: theme.colors.surface,
               }}
             >
-              <Text style={{ color: theme.colors.text, fontWeight: '600' }}>{option.title}</Text>
+              <Text style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}>
+                {option.title}
+              </Text>
               <Text style={{ color: theme.colors.textMuted, fontSize: theme.fontSize.sm }}>
                 {option.description}
               </Text>
@@ -99,12 +102,27 @@ export function RegisterForm() {
         error={errors.fields.password}
       />
       <Button title="Create account" loading={submitting} onPress={() => void submit()} />
-      <Text style={{ color: theme.colors.textMuted, textAlign: 'center' }}>
-        Already have an account?{' '}
-        <Link href="/sign-in" replace style={{ color: theme.colors.primary, fontWeight: '600' }}>
-          Sign in
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+        }}
+      >
+        <Text style={{ color: theme.colors.textMuted }}>Already have an account?</Text>
+        <Link href="/sign-in" replace asChild>
+          <Pressable
+            accessibilityRole="link"
+            style={{ minHeight: theme.size.touch, justifyContent: 'center' }}
+          >
+            <Text style={{ color: theme.colors.link, fontWeight: theme.fontWeight.semibold }}>
+              Sign in
+            </Text>
+          </Pressable>
         </Link>
-      </Text>
+      </View>
     </>
   );
 }

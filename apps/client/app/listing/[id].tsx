@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ApiError } from '../../api';
 import { formErrorsFromApi, useSession } from '../../features/auth';
 import { SpecList } from '../../features/equipment';
@@ -76,7 +76,11 @@ export default function ListingDetailScreen() {
         >
           <Heading title={item.title} />
           <Text
-            style={{ color: theme.colors.primary, fontSize: theme.fontSize.xl, fontWeight: '700' }}
+            style={{
+              color: theme.colors.link,
+              fontSize: theme.fontSize.xl,
+              fontWeight: theme.fontWeight.bold,
+            }}
           >
             {formatRupees(item.pricePerDay)} <Text style={muted}>/ day</Text>
           </Text>
@@ -84,12 +88,16 @@ export default function ListingDetailScreen() {
             {item.location}, {item.city.name}
           </Text>
           <Text style={muted}>Supplied by {item.supplier.displayName}</Text>
-          <Link
-            href={{ pathname: '/equipment/[id]', params: { id: item.model.id } }}
-            style={{ color: theme.colors.primary, fontWeight: '600' }}
-          >
-            {item.model.manufacturer.name} {item.model.modelName} ·{' '}
-            {item.model.category.displayName}
+          <Link href={{ pathname: '/equipment/[id]', params: { id: item.model.id } }} asChild>
+            <Pressable
+              accessibilityRole="link"
+              style={{ minHeight: theme.size.touch, justifyContent: 'center' }}
+            >
+              <Text style={{ color: theme.colors.link, fontWeight: theme.fontWeight.semibold }}>
+                {item.model.manufacturer.name} {item.model.modelName} ·{' '}
+                {item.model.category.displayName}
+              </Text>
+            </Pressable>
           </Link>
           {isBuilder ? (
             <Button
@@ -104,11 +112,24 @@ export default function ListingDetailScreen() {
       <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.md }}>
         {item.description}
       </Text>
-      <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.lg, fontWeight: '600' }}>
+      <Text
+        accessibilityRole="header"
+        style={{
+          color: theme.colors.text,
+          fontSize: theme.fontSize.lg,
+          fontWeight: theme.fontWeight.semibold,
+        }}
+      >
         Specifications
       </Text>
       {model.isLoading ? (
-        <Text style={muted}>Loading specifications…</Text>
+        <View
+          accessibilityLabel="Loading specifications"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}
+        >
+          <ActivityIndicator color={theme.colors.primary} />
+          <Text style={muted}>Loading specifications…</Text>
+        </View>
       ) : model.data ? (
         <SpecList specifications={model.data.specifications} />
       ) : (

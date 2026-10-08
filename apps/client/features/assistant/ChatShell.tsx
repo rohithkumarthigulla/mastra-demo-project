@@ -50,15 +50,16 @@ export function ChatShell(props: ChatShellProps) {
             accessibilityRole="button"
             accessibilityState={{ selected: c.id === props.activeId }}
             onPress={() => props.onSelect(c.id)}
-            style={[
-              styles.item,
-              {
-                borderRadius: theme.radius.sm,
-                padding: theme.spacing.sm,
-                borderColor: c.id === props.activeId ? theme.colors.primary : theme.colors.border,
-                backgroundColor: theme.colors.surface,
-              },
-            ]}
+            style={{
+              minHeight: theme.size.touch,
+              justifyContent: 'center',
+              borderRadius: theme.radius.sm,
+              padding: theme.spacing.sm,
+              borderWidth: c.id === props.activeId ? 2 : 1,
+              borderColor:
+                c.id === props.activeId ? theme.colors.primary : theme.colors.borderStrong,
+              backgroundColor: theme.colors.surface,
+            }}
           >
             <Text numberOfLines={1} style={{ color: theme.colors.text }}>
               {c.title}
@@ -104,7 +105,7 @@ export function ChatShell(props: ChatShellProps) {
                 {
                   color: theme.colors.text,
                   backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
+                  borderColor: theme.colors.borderStrong,
                   borderRadius: theme.radius.sm,
                   padding: theme.spacing.sm,
                   fontSize: theme.fontSize.md,
@@ -136,7 +137,8 @@ export function Bubble({
         alignSelf: mine ? 'flex-end' : 'flex-start',
         maxWidth: '85%',
         gap: theme.spacing.sm,
-        padding: theme.spacing.sm + 4,
+        paddingVertical: theme.spacing.sm,
+        paddingHorizontal: theme.spacing.md,
         borderRadius: theme.radius.md,
         backgroundColor: mine ? theme.colors.primary : theme.colors.surface,
         borderWidth: mine ? 0 : 1,
@@ -175,6 +177,5 @@ function TypingIndicator() {
 }
 
 const styles = StyleSheet.create({
-  item: { borderWidth: 1 },
   input: { flex: 1, borderWidth: 1, minHeight: 48, maxHeight: 160 },
 });
