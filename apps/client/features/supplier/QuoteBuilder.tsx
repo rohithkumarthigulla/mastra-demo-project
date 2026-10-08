@@ -31,6 +31,9 @@ import { lineAmount, previewTotals } from './quoteMath';
 
 const LINE_TYPES = Object.entries(LINE_TYPE_LABELS).map(([value, label]) => ({ value, label }));
 
+/** Quantities are at most three digits, so the field stays narrow beside the amount. */
+const QUANTITY_FIELD_WIDTH = 110;
+
 interface QuoteBuilderProps {
   listingId: string;
   startDate: string;
@@ -122,7 +125,7 @@ export function QuoteBuilder(props: QuoteBuilderProps) {
                 </View>
               </View>
               <View style={{ flexDirection: 'row', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
-                <View style={{ width: 110 }}>
+                <View style={{ width: QUANTITY_FIELD_WIDTH }}>
                   <TextField
                     label="Quantity"
                     value={line.quantity}
@@ -149,7 +152,7 @@ export function QuoteBuilder(props: QuoteBuilderProps) {
                   alignItems: 'center',
                 }}
               >
-                <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+                <Text style={{ color: theme.colors.text, fontWeight: theme.fontWeight.semibold }}>
                   {amount === null ? '—' : formatRupees(amount)}
                 </Text>
                 <Button
@@ -204,7 +207,7 @@ export function QuoteBuilder(props: QuoteBuilderProps) {
         <Field
           label="Total"
           value={
-            <Text style={{ color: theme.colors.text, fontWeight: '700' }}>
+            <Text style={{ color: theme.colors.text, fontWeight: theme.fontWeight.bold }}>
               {formatRupees(totals.total)}
             </Text>
           }
