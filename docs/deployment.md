@@ -4,13 +4,13 @@ The api ships as a Docker image built from the repository root. The client is an
 
 Config files:
 
-| File                   | Purpose                                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `Dockerfile`           | api image (`node:22-slim`, pnpm via corepack)                                            |
-| `.dockerignore`        | keeps `node_modules`, build output, `.env` files, `storage/` and `.git` out of the image |
-| `railway.toml`         | Railway build, pre-deploy, health check and restart settings                             |
-| `apps/client/eas.json` | EAS build profiles (`preview`, `production`)                                             |
-| `apps/client/app.json` | app name, ids, version, icon and splash                                                  |
+| File                   | Purpose                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `Dockerfile`           | api image (`node:22-slim`, pnpm via corepack)                                                                      |
+| `.dockerignore`        | keeps `node_modules`, build output, `.env` files, `storage/`, Mastra's generated files and `.git` out of the image |
+| `railway.toml`         | Railway build, pre-deploy, health check and restart settings                                                       |
+| `apps/client/eas.json` | EAS build profiles (`preview`, `production`)                                                                       |
+| `apps/client/app.json` | app name, ids, version, icon and splash                                                                            |
 
 ## Environment variables
 
@@ -42,6 +42,16 @@ The image sets `NODE_ENV=production` and `PORT=3000`; override either on the hos
 | Variable              | Required               | Example                   | Meaning                                                                                                                                                           |
 | --------------------- | ---------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `EXPO_PUBLIC_API_URL` | for any deployed build | `https://api.example.com` | api base address, baked into the bundle at build time. Without it the app falls back to `http://localhost:3000` (`http://10.0.2.2:3000` on the Android emulator). |
+
+### Mastra Studio (local only)
+
+The Mastra agents in `src/mastra` are not deployed. The api image installs their packages along with the rest of the lockfile, but it only starts the api. Studio reads one variable from a git-ignored `.env` in the repository root (copy `.env.example`):
+
+| Variable             | Required                | Example                 | Meaning                                           |
+| -------------------- | ----------------------- | ----------------------- | ------------------------------------------------- |
+| `OPENROUTER_API_KEY` | to chat with the agents | your OpenRouter API key | key for the model the agents in `src/mastra` call |
+
+More on running Studio: [mastra.md](mastra.md).
 
 ## Run the container locally
 

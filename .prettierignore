@@ -6,3 +6,5 @@ pnpm-lock.yaml
 apps/api/drizzle
 .artifacts
 .claude
+.mastra
+src/mastra/public

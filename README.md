@@ -36,6 +36,8 @@ apps/
     features/<name>/    feature code (auth, equipment, navigation, rental, quotes, supplier, ...)
 packages/
   contracts/            Zod schemas shared by the api and the client (@ee/contracts)
+src/
+  mastra/               Mastra agents, tools and workflows, run locally in Mastra Studio
 docs/                   feature docs, walkthrough, deployment
 docs/knowledge/         reference material for the AI assistants
 docker-compose.yml      PostgreSQL 17 with pgvector
@@ -97,7 +99,7 @@ pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test
 | Script                                 | What it does                                                                        |
 | -------------------------------------- | ----------------------------------------------------------------------------------- |
 | `pnpm build`                           | builds contracts, api and the client web export                                     |
-| `pnpm typecheck`                       | runs `tsc --noEmit` in every package                                                |
+| `pnpm typecheck`                       | runs `tsc --noEmit` in every package and over `src/mastra`                          |
 | `pnpm lint`                            | ESLint over the whole repo                                                          |
 | `pnpm format:check`                    | Prettier check (`pnpm format` fixes it)                                             |
 | `pnpm test`                            | Node test runner over `dist/` for the api, Vitest elsewhere; run `pnpm build` first |
@@ -107,6 +109,7 @@ pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test
 | `pnpm --filter @ee/api db:seed`        | loads equipment knowledge reference data (idempotent)                               |
 | `pnpm --filter @ee/api demo:hyderabad` | loads the Hyderabad demo data (idempotent; `--remove` deletes it)                   |
 | `pnpm --filter @ee/api agent:ingest`   | loads `docs/knowledge/` into the supplier agent's knowledge base                    |
+| `pnpm mastra:dev`                      | starts Mastra Studio for the agents in `src/mastra`                                 |
 
 ## Documentation
 
@@ -118,5 +121,6 @@ pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test
 | [requirements.md](docs/requirements.md)         | requirements, matching and sending to suppliers                    |
 | [supplier-screens.md](docs/supplier-screens.md) | supplier app screens and the tracker                               |
 | [assistants.md](docs/assistants.md)             | equipment assistant and supplier agent                             |
+| [mastra.md](docs/mastra.md)                     | Mastra agents in `src/mastra`, Studio, adding an agent             |
 | [contracts.md](docs/contracts.md)               | every route and its shared schema                                  |
 | [deployment.md](docs/deployment.md)             | environment variables, Docker, Railway, EAS, web build             |
