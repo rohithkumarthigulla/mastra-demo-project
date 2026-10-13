@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TABS, activeTabFor } from './tabs';
+import { TABS, activeTabFor, tabPressAction } from './tabs';
 
 describe('TABS', () => {
   it('lists the builder tabs in order', () => {
@@ -78,5 +78,36 @@ describe('activeTabFor supplier', () => {
     ['/bookings', 'home'],
   ])('%s → %s', (path, tab) => {
     expect(activeTabFor('supplier', path)).toBe(tab);
+  });
+});
+
+describe('tabPressAction', () => {
+  const tab = (role: 'builder' | 'supplier', key: string) => {
+    const found = TABS[role].find((t) => t.key === key);
+    if (!found) throw new Error(`no ${role} tab ${key}`);
+    return found;
+  };
+
+  it.each(['builder', 'supplier'] as const)('does nothing on each %s tab’s own screen', (role) => {
+    for (const t of TABS[role]) expect(tabPressAction(t.href, t)).toBe('none');
+  });
+
+  it.each([
+    ['builder', '/home', 'requirements'],
+    ['builder', '/requirements', 'bookings'],
+    ['builder', '/bookings/abc', 'bookings'],
+    ['builder', '/requirements/new', 'requirements'],
+    ['builder', '/notifications', 'home'],
+    ['supplier', '/supplier', 'fleet'],
+    ['supplier', '/supplier/fleet/listings/l1', 'fleet'],
+    ['supplier', '/supplier/pipeline/requests/r1', 'pipeline'],
+    ['supplier', '/supplier/agent', 'home'],
+  ] as const)('%s on %s pressing %s resets', (role, path, key) => {
+    expect(tabPressAction(path, tab(role, key))).toBe('reset');
+  });
+
+  it('ignores trailing slashes, query and hash', () => {
+    expect(tabPressAction('/bookings/?status=ACTIVE', tab('builder', 'bookings'))).toBe('none');
+    expect(tabPressAction('/supplier/#top', tab('supplier', 'home'))).toBe('none');
   });
 });

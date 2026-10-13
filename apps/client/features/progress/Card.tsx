@@ -7,16 +7,19 @@ interface CardProps {
   subtitle?: string;
   /** Status badge or amount shown at the top right. */
   aside?: ReactNode;
+  /** Thumbnail shown before the title, such as the listing's photo or drawing. */
+  leading?: ReactNode;
   children?: ReactNode;
   onPress?: () => void;
 }
 
 /** List row shared by requests, bookings and requirements, for either role. */
-export function Card({ title, subtitle, aside, children, onPress }: CardProps) {
+export function Card({ title, subtitle, aside, leading, children, onPress }: CardProps) {
   const theme = useTheme();
   const body = (
     <View style={{ gap: theme.spacing.sm }}>
       <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-start' }}>
+        {leading}
         <View style={{ flex: 1, gap: 2 }}>
           <Text
             numberOfLines={2}

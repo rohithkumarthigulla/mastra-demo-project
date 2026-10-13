@@ -1,9 +1,14 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNotifications } from '../../api';
 import { useSession } from '../auth';
 import { useTheme } from '../theme';
+import { bellAccessibilityLabel, unreadBadgeText } from './badge';
+
+const ICON_SIZE = 24;
+const BADGE_SIZE = 18;
 
 /** Header bell with the unread count; opens the role's notifications screen. */
 export function NotificationBell({ href }: { href: Href }) {
@@ -11,47 +16,69 @@ export function NotificationBell({ href }: { href: Href }) {
   const router = useRouter();
   const { api } = useSession();
   const unread = useNotifications(api, { unreadOnly: true, limit: 1 }).data?.unreadCount ?? 0;
+  const badge = unreadBadgeText(unread);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+      accessibilityLabel={bellAccessibilityLabel(unread)}
       onPress={() => router.push(href)}
-      style={{
-        minWidth: theme.size.touch,
-        minHeight: theme.size.touch,
-        paddingHorizontal: theme.spacing.sm,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      hitSlop={4}
+      style={({ pressed }) => [
+        styles.button,
+        {
+          width: theme.size.touch,
+          height: theme.size.touch,
+          borderRadius: theme.size.touch / 2,
+          backgroundColor: pressed ? theme.colors.background : 'transparent',
+        },
+      ]}
     >
-      <Text style={{ fontSize: theme.fontSize.lg }}>🔔</Text>
-      {unread > 0 ? (
-        <View
-          style={{
-            minWidth: 18,
-            height: 18,
-            borderRadius: 9,
-            paddingHorizontal: 4,
-            marginLeft: -6,
-            marginTop: -10,
-            backgroundColor: theme.colors.primary,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text
-            style={{
-              color: theme.colors.onPrimary,
-              fontSize: theme.fontSize.xs,
-              fontWeight: theme.fontWeight.bold,
-            }}
+      <View>
+        <Ionicons
+          name={badge ? 'notifications' : 'notifications-outline'}
+          size={ICON_SIZE}
+          color={theme.colors.text}
+        />
+        {badge ? (
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: theme.colors.primary,
+                borderColor: theme.colors.surface,
+              },
+            ]}
           >
-            {unread > 99 ? '99+' : unread}
-          </Text>
-        </View>
-      ) : null}
+            <Text
+              style={{
+                color: theme.colors.onPrimary,
+                fontSize: 10,
+                lineHeight: 12,
+                fontWeight: theme.fontWeight.bold,
+              }}
+            >
+              {badge}
+            </Text>
+          </View>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  button: { alignItems: 'center', justifyContent: 'center' },
+  badge: {
+    position: 'absolute',
+    top: -BADGE_SIZE / 2 + 2,
+    left: ICON_SIZE - BADGE_SIZE / 2 - 2,
+    minWidth: BADGE_SIZE + 4,
+    height: BADGE_SIZE + 4,
+    borderRadius: (BADGE_SIZE + 4) / 2,
+    borderWidth: 2,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

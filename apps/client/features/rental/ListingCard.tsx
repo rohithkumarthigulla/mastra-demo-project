@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import type { EquipmentListingDto } from '@ee/contracts';
+import { EquipmentArt } from '../equipment/art';
 import { useTheme } from '../theme';
 import { AuthImage } from './AuthImage';
 import { formatDailyRate } from './format';
@@ -38,17 +39,11 @@ export function ListingCard({ listing, onPress, owner = false }: ListingCardProp
           style={{ width: '100%', aspectRatio: 16 / 9 }}
         />
       ) : (
-        <View
-          style={{
-            width: '100%',
-            aspectRatio: 16 / 9,
-            backgroundColor: theme.colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: theme.colors.textMuted }}>No photo</Text>
-        </View>
+        <EquipmentArt
+          categoryCode={listing.model.category.code}
+          title={listing.title}
+          style={{ width: '100%', aspectRatio: 16 / 9 }}
+        />
       )}
       <View style={{ padding: theme.spacing.md, gap: theme.spacing.xs }}>
         {owner ? <ListingStatusBadge status={listing.status} /> : null}

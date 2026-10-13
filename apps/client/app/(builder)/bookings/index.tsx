@@ -12,7 +12,7 @@ import {
   StageBar,
   useMyBookings,
 } from '../../../features/progress';
-import { formatRupees } from '../../../features/rental';
+import { formatRupees, ListingThumb } from '../../../features/rental';
 import { useTheme } from '../../../features/theme';
 import {
   Chips,
@@ -74,6 +74,7 @@ export default function MyBookingsScreen() {
             <Card
               key={booking.id}
               title={booking.listing.title}
+              leading={<ListingThumb listing={booking.listing} />}
               subtitle={`${booking.supplierName} · ${formatDateRange(booking.startDate, booking.endDate, booking.days)}`}
               aside={<BookingStatusBadge status={booking.status} />}
               onPress={() =>

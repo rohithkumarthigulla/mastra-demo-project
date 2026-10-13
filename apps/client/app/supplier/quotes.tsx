@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useSupplierQuotes } from '../../api';
 import { useSession } from '../../features/auth';
-import { formatRupees } from '../../features/rental';
+import { formatRupees, ListingThumb } from '../../features/rental';
 import {
   Card,
   CardTitle,
@@ -80,11 +80,16 @@ export default function SupplierQuotesScreen() {
                   })
                 }
               >
-                <CardTitle>{quote.builderName}</CardTitle>
-                <Muted>
-                  {quote.listing.title} ·{' '}
-                  {formatDateRange(quote.rentalRequest.startDate, quote.rentalRequest.endDate)}
-                </Muted>
+                <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+                  <ListingThumb listing={quote.listing} authenticated />
+                  <View style={{ flex: 1, gap: theme.spacing.xs }}>
+                    <CardTitle>{quote.builderName}</CardTitle>
+                    <Muted>
+                      {quote.listing.title} ·{' '}
+                      {formatDateRange(quote.rentalRequest.startDate, quote.rentalRequest.endDate)}
+                    </Muted>
+                  </View>
+                </View>
                 <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'center' }}>
                   <QuoteStatusBadge status={quote.status} />
                   <Muted>{formatRupees(quote.total)}</Muted>

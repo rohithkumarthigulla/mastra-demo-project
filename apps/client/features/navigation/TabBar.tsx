@@ -2,30 +2,17 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { BlurView } from 'expo-blur';
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useReduceMotion } from '../design';
 import { useTheme } from '../theme';
-import { activeTabFor, TABS, type NavRole } from './tabs';
+import { activeTabFor, tabPressAction, TABS, type NavRole, type TabDef } from './tabs';
 
 /** Height of the pill itself, without the gap to the screen edge. */
 export const TAB_BAR_HEIGHT = 64;
 const PAD = 6;
 const MAX_WIDTH = 480;
-
-function useReduceMotion(): boolean {
-  const [reduce, setReduce] = useState(false);
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((value) => {
-      if (mounted) setReduce(value);
-    });
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduce);
-    return () => {
-      mounted = false;
-      sub.remove();
-    };
-  }, []);
-  return reduce;
-}
+/** Below this window width the labels drop to 10pt so "Requirements" fits. */
+const COMPACT_WIDTH = 420;
 
 interface TabBarProps {
   role: NavRole;
@@ -38,6 +25,7 @@ export function TabBar({ role, bottom }: TabBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const reduceMotion = useReduceMotion();
+  const compact = useWindowDimensions().width < COMPACT_WIDTH;
   const tabs = TABS[role];
   const activeKey = activeTabFor(role, pathname);
   const activeIndex = Math.max(
@@ -77,8 +65,16 @@ export function TabBar({ role, bottom }: TabBarProps) {
 
   const glass = theme.glass;
 
+  const onPress = (tab: TabDef) => {
+    if (tabPressAction(pathname, tab) === 'none') return;
+    // Pop back to the role stack's first screen, then swap it for the tab,
+    // so the stack only ever holds the current tab and what was opened from it.
+    if (router.canDismiss()) router.dismissAll();
+    router.replace(tab.href as Href);
+  };
+
   return (
-    <View style={[styles.dock, { bottom, paddingHorizontal: theme.spacing.md }]}>
+    <View style={[styles.dock, { bottom, paddingHorizontal: theme.spacing.sm }]}>
       <View
         accessibilityRole="tablist"
         style={[styles.pill, { borderColor: glass.border, maxWidth: MAX_WIDTH }]}
@@ -120,7 +116,7 @@ export function TabBar({ role, bottom }: TabBarProps) {
                 accessibilityRole="tab"
                 aria-selected={active}
                 accessibilityLabel={tab.label}
-                onPress={() => router.navigate(tab.href as Href)}
+                onPress={() => onPress(tab)}
                 style={[styles.tab, { minHeight: theme.size.touch }]}
               >
                 <Ionicons
@@ -132,7 +128,8 @@ export function TabBar({ role, bottom }: TabBarProps) {
                   numberOfLines={1}
                   style={{
                     color,
-                    fontSize: theme.fontSize.xs,
+                    fontSize: compact ? 10 : theme.fontSize.xs,
+                    letterSpacing: compact ? -0.2 : 0,
                     fontWeight: active ? theme.fontWeight.semibold : theme.fontWeight.medium,
                   }}
                 >

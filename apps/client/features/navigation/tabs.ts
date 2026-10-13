@@ -102,3 +102,12 @@ export function activeTabFor(role: NavRole, pathname: string): string {
   }
   return best?.key ?? 'home';
 }
+
+/**
+ * What pressing `tab` should do while `pathname` is shown. Already on the
+ * tab's own screen does nothing; anywhere else resets the stack to the tab,
+ * so switching tabs never adds history and Back never walks through tabs.
+ */
+export function tabPressAction(pathname: string, tab: TabDef): 'none' | 'reset' {
+  return segmentsOf(pathname).join('/') === segmentsOf(tab.href).join('/') ? 'none' : 'reset';
+}

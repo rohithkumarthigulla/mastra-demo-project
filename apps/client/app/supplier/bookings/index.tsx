@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useSupplierBookings } from '../../../api';
 import { useSession } from '../../../features/auth';
-import { formatRupees } from '../../../features/rental';
+import { formatRupees, ListingThumb } from '../../../features/rental';
 import {
   BookingStatusBadge,
   Card,
@@ -77,10 +77,16 @@ export default function SupplierBookingsScreen() {
                   router.push({ pathname: '/supplier/bookings/[id]', params: { id: booking.id } })
                 }
               >
-                <CardTitle>{booking.builderName}</CardTitle>
-                <Muted>
-                  {booking.listing.title} · {formatDateRange(booking.startDate, booking.endDate)}
-                </Muted>
+                <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+                  <ListingThumb listing={booking.listing} authenticated />
+                  <View style={{ flex: 1, gap: theme.spacing.xs }}>
+                    <CardTitle>{booking.builderName}</CardTitle>
+                    <Muted>
+                      {booking.listing.title} ·{' '}
+                      {formatDateRange(booking.startDate, booking.endDate)}
+                    </Muted>
+                  </View>
+                </View>
                 <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'center' }}>
                   <BookingStatusBadge status={booking.status} />
                   <Muted>{formatRupees(booking.total)}</Muted>

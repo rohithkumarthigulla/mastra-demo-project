@@ -1,35 +1,35 @@
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import type { ListingPhotoDto } from '@ee/contracts';
+import { EquipmentArt } from '../equipment/art';
 import { useTheme } from '../theme';
 import { AuthImage } from './AuthImage';
 
 interface PhotoGalleryProps {
   photos: ListingPhotoDto[];
   title: string;
+  /** Picks the drawing shown when there are no photos. */
+  categoryCode?: string;
   authenticated?: boolean;
 }
 
-export function PhotoGallery({ photos, title, authenticated = false }: PhotoGalleryProps) {
+export function PhotoGallery({
+  photos,
+  title,
+  categoryCode,
+  authenticated = false,
+}: PhotoGalleryProps) {
   const theme = useTheme();
   const [index, setIndex] = useState(0);
   const current = photos[Math.min(index, photos.length - 1)];
 
   if (!current) {
     return (
-      <View
-        style={{
-          aspectRatio: 4 / 3,
-          borderRadius: theme.radius.md,
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border,
-          borderWidth: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: theme.colors.textMuted }}>No photos yet</Text>
-      </View>
+      <EquipmentArt
+        categoryCode={categoryCode}
+        title={title}
+        style={{ aspectRatio: 4 / 3, borderRadius: theme.radius.md }}
+      />
     );
   }
 
