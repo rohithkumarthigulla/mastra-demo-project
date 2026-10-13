@@ -7,6 +7,7 @@ import { EquipmentListingsService } from '../equipment-listings/application';
 import { EQUIPMENT_LISTING_REPOSITORY } from '../equipment-listings/domain';
 import { DrizzleEquipmentListingsRepository } from '../equipment-listings/infrastructure';
 import { FleetModule } from '../fleet/fleet.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { RentalRequestsService } from '../rental-requests/application';
 import { AgentSpeechService, SupplierAgentService } from './application';
 import { AGENT_REPOSITORY, KNOWLEDGE_REPOSITORY } from './domain';
@@ -14,7 +15,7 @@ import { SupplierAgentController } from './http';
 import { DrizzleAgentRepository, DrizzleKnowledgeRepository } from './infrastructure';
 
 @Module({
-  imports: [AiModule, FleetModule],
+  imports: [AiModule, FleetModule, NotificationsModule],
   controllers: [SupplierAgentController],
   providers: [
     SupplierAgentService,
