@@ -63,17 +63,4 @@ export function Card({ title, subtitle, aside, leading, children, onPress }: Car
   );
 }
 
-/** Label/value pair for detail screens. */
-export function Field({ label, value }: { label: string; value: ReactNode }) {
-  const theme = useTheme();
-  return (
-    <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
-      <Text style={{ color: theme.colors.textMuted, fontSize: theme.fontSize.md, minWidth: 110 }}>
-        {label}
-      </Text>
-      <Text style={{ color: theme.colors.text, fontSize: theme.fontSize.md, flex: 1 }}>
-        {value}
-      </Text>
-    </View>
-  );
-}
+export { Field } from '../ui/Field';

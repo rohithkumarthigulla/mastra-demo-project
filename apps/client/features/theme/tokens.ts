@@ -2,8 +2,11 @@ const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 const radius = { sm: 6, md: 10 } as const;
 const fontSize = { xs: 11, sm: 13, md: 16, lg: 20, xl: 28 } as const;
 const fontWeight = { regular: '400', medium: '500', semibold: '600', bold: '700' } as const;
-/** Minimum hit area for anything tappable (WCAG 2.5.8 / platform guidelines), and the narrow content column. */
-const size = { touch: 44, column: 420 } as const;
+/**
+ * Minimum hit area for anything tappable (WCAG 2.5.8 / platform guidelines), the narrow
+ * content column, and the widest a screen's content grows on desktop.
+ */
+const size = { touch: 44, column: 420, page: 1080 } as const;
 
 /** Background/text pair for a status badge. */
 export interface Tone {
