@@ -2,6 +2,7 @@ export { Badge, type BadgeTone } from './Badge';
 export { Button } from './Button';
 export { EmptyState } from './EmptyState';
 export { ErrorMessage } from './ErrorMessage';
+export { Field } from './Field';
 export { Heading } from './Heading';
 export { LoadingIndicator } from './LoadingIndicator';
 export { Pagination } from './Pagination';

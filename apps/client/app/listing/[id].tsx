@@ -65,7 +65,11 @@ export default function ListingDetailScreen() {
         }}
       >
         <View style={{ flex: wide ? 3 : undefined, width: wide ? undefined : '100%' }}>
-          <PhotoGallery photos={item.photos} title={item.title} />
+          <PhotoGallery
+            photos={item.photos}
+            title={item.title}
+            categoryCode={item.model.category.code}
+          />
         </View>
         <View
           style={{

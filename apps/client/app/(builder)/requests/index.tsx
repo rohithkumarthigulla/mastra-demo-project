@@ -12,7 +12,7 @@ import {
   StageBar,
   useMyRequests,
 } from '../../../features/progress';
-import { formatRupees } from '../../../features/rental';
+import { formatRupees, ListingThumb } from '../../../features/rental';
 import { useTheme } from '../../../features/theme';
 import {
   Button,
@@ -77,6 +77,7 @@ export default function MyRequestsScreen() {
             <Card
               key={request.id}
               title={request.listing.title}
+              leading={<ListingThumb listing={request.listing} />}
               subtitle={`${request.supplierName} · ${formatDateRange(request.startDate, request.endDate, request.days)}`}
               aside={<RequestStatusBadge status={request.status} />}
               onPress={() =>

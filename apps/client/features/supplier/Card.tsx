@@ -72,16 +72,4 @@ export function Muted({ children }: { children: ReactNode }) {
   );
 }
 
-/** Keeps values in a single column when labels like "GST 18%" and "Valid until" sit side by side. */
-const FIELD_LABEL_WIDTH = 110;
-
-/** A label/value row for detail screens. */
-export function Field({ label, value }: { label: string; value: ReactNode }) {
-  const theme = useTheme();
-  return (
-    <View style={{ flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap' }}>
-      <Text style={{ color: theme.colors.textMuted, minWidth: FIELD_LABEL_WIDTH }}>{label}</Text>
-      <Text style={{ color: theme.colors.text, flexShrink: 1 }}>{value}</Text>
-    </View>
-  );
-}
+export { Field } from '../ui/Field';

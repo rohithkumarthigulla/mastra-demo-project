@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useIncomingRentalRequests } from '../../../api';
 import { useSession } from '../../../features/auth';
-import { formatRupees } from '../../../features/rental';
+import { formatRupees, ListingThumb } from '../../../features/rental';
 import {
   Card,
   CardTitle,
@@ -87,16 +87,22 @@ export default function IncomingRequestsScreen() {
                   })
                 }
               >
-                <View style={{ flexDirection: 'row', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
-                  <CardTitle>{request.builderName}</CardTitle>
-                  {request.viewedAt === null && request.status === 'PENDING' ? (
-                    <Muted>• New</Muted>
-                  ) : null}
+                <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+                  <ListingThumb listing={request.listing} authenticated />
+                  <View style={{ flex: 1, gap: theme.spacing.xs }}>
+                    <View style={{ flexDirection: 'row', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
+                      <CardTitle>{request.builderName}</CardTitle>
+                      {request.viewedAt === null && request.status === 'PENDING' ? (
+                        <Muted>• New</Muted>
+                      ) : null}
+                    </View>
+                    <Muted>
+                      {request.listing.title} ·{' '}
+                      {formatDateRange(request.startDate, request.endDate)} ({request.days}{' '}
+                      {request.days === 1 ? 'day' : 'days'})
+                    </Muted>
+                  </View>
                 </View>
-                <Muted>
-                  {request.listing.title} · {formatDateRange(request.startDate, request.endDate)} (
-                  {request.days} {request.days === 1 ? 'day' : 'days'})
-                </Muted>
                 <View style={{ flexDirection: 'row', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
                   <RequestStatusBadge status={request.status} />
                   {request.requirementId ? <Muted>From a requirement</Muted> : null}

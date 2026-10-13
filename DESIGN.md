@@ -166,7 +166,9 @@ System sans throughout, no custom fonts. Hierarchy comes from size and weight to
 
 - Spacing scale `xs 4 · sm 8 · md 16 · lg 24 · xl 32`. Screens pad `lg`; stacks inside a section gap `sm`–`md`; sections gap `lg`.
 - `<Screen>` wraps every route: safe-area + scroll + `background`. Inside the builder and supplier areas it also pads the bottom by the tab bar's height, so nothing scrolls out of reach behind the bar.
+- Every screen's content is capped at `size.page` (1080) and centered, so wide windows keep one aligned column instead of stretching edge to edge.
 - Narrow content (home shortcuts, sign-in, centered errors) is capped at `size.column` (420).
+- Label/value rows on detail screens use the shared `Field` (`features/ui`): label 110 wide, value beside it, wrapping under it when space runs out. Builder and supplier screens use the same one so values line up across roles.
 - At `WIDE_BREAKPOINT` (768) filters and form fields go side-by-side; card grids wrap with a 220 minimum width.
 
 ## Elevation & Depth
@@ -197,7 +199,15 @@ Two radii: `radius.sm` (6) for inputs, select options and small controls; `radiu
 
 ### Tab bar
 
-`TabBar` (`features/navigation`) — the signed-in builder and supplier areas share one floating pill at the bottom of every screen, five tabs each (icon over a `fontSize.xs` label, outlined icon when inactive, filled when active). The pill is `expo-blur` under a `glass.tint` fill with a `glass.border` outline, capped at 480 wide and centered. A `glass.bubble` droplet sits behind the active tab; on a tab change its leading edge springs ahead and its trailing edge follows, so it stretches toward the new tab and settles with a small overshoot (about 400 ms). With Reduce Motion on, it jumps. The active tab comes from the URL (`activeTabFor`), so detail screens keep their tab lit and unknown routes fall back to Home. Each tab is a 44-high `tab` with `aria-selected` on the active one.
+`TabBar` (`features/navigation`) — the signed-in builder and supplier areas share one floating pill at the bottom of every screen, five tabs each (icon over a `fontSize.xs` label, outlined icon when inactive, filled when active). The pill is `expo-blur` under a `glass.tint` fill with a `glass.border` outline, capped at 480 wide and centered. A `glass.bubble` droplet sits behind the active tab; on a tab change its leading edge springs ahead and its trailing edge follows, so it stretches toward the new tab and settles with a small overshoot (about 400 ms). With Reduce Motion on, it jumps. The active tab comes from the URL (`activeTabFor`), so detail screens keep their tab lit and unknown routes fall back to Home. Each tab is a 44-high `tab` with `aria-selected` on the active one. Pressing a tab clears the stack and replaces it with that tab's screen (`tabPressAction`), so switching tabs never adds history and Back from a detail returns to the tab's list; pressing the tab you are already on does nothing. Below 420 wide the labels drop to 10 with slightly tighter tracking so "Requirements" fits at 390.
+
+### Notification bell
+
+`NotificationBell` (`features/notifications`) — the header's right action. An Ionicons bell in `text` colour (outlined with no unread, filled with unread), inside a 44×44 pressable that shows a `background` fill while pressed. Unread count sits in a `primary` badge with `onPrimary` text at the bell's top-right, ringed in `surface` so it reads against the header; counts over 99 show "99+". Labelled "Notifications, N unread".
+
+### Equipment drawings
+
+`EquipmentArt` (`features/equipment/art`) — when a listing has no photo, a hand-drawn side view of the machine stands in on a soft tint for its category (excavator, mini excavator, backhoe loader, wheel loader, telehandler, roller, and a generic machine for anything else). The category comes from the listing's model; where only a title is known (request, quote and booking rows) it is inferred from the title. It fades and rises in once, then floats 4 up and back every 6 s; transforms only. With Reduce Motion on it is still. `ListingThumb` (`features/rental`) is the 64×64 version used in list rows. The drawings are the one place gradients are allowed.
 
 ### Status & progress
 
@@ -214,6 +224,6 @@ Every async screen uses the same three primitives: `<LoadingIndicator>` while lo
 - **Do** keep one primary action per screen; make the rest secondary.
 - **Do** say the stage or status in words.
 - **Don't** put white text on orange, or `primary` orange as body text — use `onPrimary` and `link`.
-- **Don't** add shadows, gradients, custom fonts or a second accent color.
+- **Don't** add shadows, custom fonts or a second accent color, or gradients outside the equipment drawings.
 - **Don't** use glass or blur outside the tab bar.
 - **Don't** hard-code hex values or pixel sizes in screens.
