@@ -8,7 +8,7 @@ bookings and the pipeline tracker. Everything here is client-only; it uses the r
 
 | Route                              | Screen                                                                         |
 | ---------------------------------- | ------------------------------------------------------------------------------ |
-| `/supplier`                        | Home, with links to every screen below                                         |
+| `/supplier`                        | Home: shortcuts to Rental requests, Quotes, Availability, My listings, Company |
 | `/supplier/fleet`                  | Yards (add, edit, delete inline) and machines grouped by listing               |
 | `/supplier/fleet/units/new`        | Add a machine (`?listingId=` preselects the listing)                           |
 | `/supplier/fleet/units/[id]`       | Edit or retire a machine                                                       |
@@ -25,6 +25,17 @@ bookings and the pipeline tracker. Everything here is client-only; it uses the r
 
 Screen code lives in `apps/client/app/supplier`; components and logic in
 `apps/client/features/supplier`.
+
+## Navigation
+
+Every supplier screen has a floating tab bar at the bottom with five tabs: **Home**
+(`/supplier`), **Pipeline** (`/supplier/pipeline/tracker`), **Bookings**
+(`/supplier/bookings`), **Fleet** (`/supplier/fleet`) and **Assistant**
+(`/supplier/agent`). The lit tab comes from the URL, so screens under a tab keep it lit:
+a request or quote under `/supplier/pipeline/...` lights Pipeline, a machine or listing
+under `/supplier/fleet/...` lights Fleet. Screens no tab owns (Quotes, Availability,
+Company, Notifications) light Home. The Home screen keeps buttons for the destinations
+that are not tabs.
 
 ## Design decisions
 

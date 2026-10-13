@@ -30,6 +30,20 @@ export interface Theme {
     danger: string;
   };
   tones: { neutral: Tone; positive: Tone; warning: Tone };
+  /**
+   * The bottom navigation bar: the one translucent, floating surface. `tint` at
+   * `tintOpacity` sits over the blur and alone keeps tab labels at AA over any content.
+   */
+  glass: {
+    tint: string;
+    tintOpacity: number;
+    border: string;
+    /** The droplet behind the active tab. */
+    bubble: string;
+    bubbleOpacity: number;
+    active: string;
+    inactive: string;
+  };
   spacing: typeof spacing;
   radius: typeof radius;
   fontSize: typeof fontSize;
@@ -56,6 +70,15 @@ export const lightTheme: Theme = {
     positive: { background: '#dcf2e1', text: '#1b6b32' },
     warning: { background: '#fdecd9', text: '#8a4a0c' },
   },
+  glass: {
+    tint: '#ffffff',
+    tintOpacity: 0.82,
+    border: '#d5d9e0',
+    bubble: '#fdecd9',
+    bubbleOpacity: 0.95,
+    active: '#8a4a0c',
+    inactive: '#4a5361',
+  },
   spacing,
   radius,
   fontSize,
@@ -81,6 +104,15 @@ export const darkTheme: Theme = {
     neutral: { background: '#2a3039', text: '#c4cad4' },
     positive: { background: '#173823', text: '#7fd897' },
     warning: { background: '#3d2a14', text: '#f5b56e' },
+  },
+  glass: {
+    tint: '#1a1e24',
+    tintOpacity: 0.85,
+    border: '#3a414b',
+    bubble: '#3d2a14',
+    bubbleOpacity: 0.95,
+    active: '#f5b56e',
+    inactive: '#aab2bf',
   },
   spacing,
   radius,
