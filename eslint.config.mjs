@@ -13,12 +13,14 @@ export default tseslint.config(
       'apps/api/drizzle/**',
       '.artifacts/**',
       '.claude/**',
+      '.mastra/**',
+      'src/mastra/public/**',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['apps/api/**', 'packages/**', '*.{js,mjs,cjs}'],
+    files: ['apps/api/**', 'packages/**', 'src/**', '*.{js,mjs,cjs}'],
     languageOptions: { globals: globals.node },
   },
   {
