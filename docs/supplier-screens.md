@@ -35,7 +35,13 @@ Every supplier screen has a floating tab bar at the bottom with five tabs: **Hom
 a request or quote under `/supplier/pipeline/...` lights Pipeline, a machine or listing
 under `/supplier/fleet/...` lights Fleet. Screens no tab owns (Quotes, Availability,
 Company, Notifications) light Home. The Home screen keeps buttons for the destinations
-that are not tabs.
+that are not tabs. Pressing a tab starts that tab fresh instead of stacking on top of
+the last one, so Back from a detail screen returns to the tab's list rather than
+walking back through every tab you visited.
+
+Listings without photos show a drawing of the machine for their category instead of
+"No photo", in listing cards and galleries, and as a small thumbnail beside each row
+in Pipeline, Quotes and Bookings.
 
 ## Design decisions
 
