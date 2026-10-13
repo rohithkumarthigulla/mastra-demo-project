@@ -45,16 +45,22 @@ A UI change is anything that alters what a user sees: screens in `apps/client/ap
 
 ### Post
 
+Screenshots are for reviewing the pull request and must not stay in the repository. Commit them, note the commit, then remove them again on the same branch. The description links to the commit that added them, so the images still show in the pull request.
+
 1. Save the images as `.artifacts/screenshots/<branch>/<screen>-<width>.png`, where `<branch>` is the branch name with `/` replaced by `-`.
-2. Commit only those images with `git add .artifacts/screenshots/<branch>`. Leave everything else in `.artifacts/` uncommitted.
-3. Starting the web client can rewrite `apps/client/tsconfig.json` and delete `apps/client/expo-env.d.ts`. Restore both with `git checkout --` before committing, and stop the servers you started.
-4. Push, then embed each image under `## Screenshots` with this exact URL form. `<sha>` is the full hash of the pushed commit that contains the image (`git rev-parse HEAD`), and `<owner>/<repo>` comes from `git remote get-url origin`:
+2. Starting the web client can rewrite `apps/client/tsconfig.json` and delete `apps/client/expo-env.d.ts`. Restore both with `git checkout --` before committing, and stop the servers you started.
+3. Commit only those images, in a commit of their own, with `git add .artifacts/screenshots/<branch>`. Leave everything else in `.artifacts/` uncommitted.
+4. Push, then note the full hash of that commit with `git rev-parse HEAD`. This is `<sha>` below.
+5. Remove the images in the next commit with `git rm -r .artifacts/screenshots/<branch>`, and push. `git ls-files .artifacts/screenshots` must print nothing when you finish.
+6. Embed each image under `## Screenshots` with this exact URL form. `<owner>/<repo>` comes from `git remote get-url origin`:
 
    ```md
    ![Supplier fleet, 390 wide](https://github.com/<owner>/<repo>/blob/<sha>/.artifacts/screenshots/<branch>/supplier-fleet-390.png?raw=true)
    ```
 
-   Use the commit hash, not the branch name, so the image survives branch deletion.
+   Use the hash of the commit that added the images, not the branch name and not the latest commit: the images no longer exist at the tip of the branch.
+
+Do not amend, squash or rebase the commit that added the images after you have used its hash. If you capture again, repeat steps 3 to 6 and update the links.
 
 ### When a capture is not possible
 
