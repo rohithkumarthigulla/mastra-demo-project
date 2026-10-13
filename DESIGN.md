@@ -186,7 +186,7 @@ Two radii: `radius.sm` (6) for inputs, select options and small controls; `radiu
 
 ### Inputs
 
-`<TextField>` / `<Select>` — label above (`label` style), `surface` fill, `borderStrong` outline, `danger` outline + message on error. Select opens a sheet with searchable options.
+`<TextField>` / `<Select>` — label above (`label` style), `surface` fill, `borderStrong` outline, `danger` outline + message on error. Select opens a sheet with searchable options. `TextField` takes an optional `accessory` shown to the right of the input — the sign-in Password field uses it for a **Show** / **Hide** text button (`link` colour, 44×44 hit area, dims while pressed, labelled "Show password" / "Hide password").
 
 ### Status & progress
 

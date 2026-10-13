@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Button, ErrorMessage, Heading, TextField } from '../ui';
 import { useTheme } from '../theme';
 import { fieldErrorsFromZod, formErrorsFromApi, type FormErrors } from './formErrors';
+import { passwordToggleLabels } from './passwordToggle';
 import { useSession } from './SessionProvider';
 
 const signInSchema = loginRequestSchema.omit({ client: true });
@@ -14,10 +15,12 @@ export function SignInForm() {
   const theme = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [submitting, setSubmitting] = useState(false);
 
   const notice = state.status === 'signedOut' ? state.notice : undefined;
+  const toggleLabels = passwordToggleLabels(passwordVisible);
 
   async function submit() {
     const parsed = signInSchema.safeParse({ email, password });
@@ -54,10 +57,29 @@ export function SignInForm() {
         label="Password"
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
+        secureTextEntry={!passwordVisible}
         autoComplete="current-password"
         onSubmitEditing={() => void submit()}
         error={errors.fields.password}
+        accessory={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={toggleLabels.accessibilityLabel}
+            onPress={() => setPasswordVisible((visible) => !visible)}
+            style={({ pressed }) => ({
+              minHeight: theme.size.touch,
+              minWidth: theme.size.touch,
+              paddingHorizontal: theme.spacing.sm,
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Text style={{ color: theme.colors.link, fontWeight: theme.fontWeight.semibold }}>
+              {toggleLabels.title}
+            </Text>
+          </Pressable>
+        }
       />
       <Button title="Sign in" loading={submitting} onPress={() => void submit()} />
       <View
