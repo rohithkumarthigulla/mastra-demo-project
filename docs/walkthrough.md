@@ -36,7 +36,7 @@ To switch account, press **Sign out** and sign in again.
 
 Sign in as `supplier.deccan@demo.equipmentexchange.local`.
 
-1. **Home.** You land on "Welcome, Deccan Earthmovers" with buttons for Pipeline, Rental requests, Quotes, Bookings, Fleet, Availability, My listings and Company profile.
+1. **Home.** You land on "Welcome, Deccan Earthmovers" with buttons for Rental requests, Quotes, Availability, My listings and Company profile. A tab bar floats at the bottom of every supplier screen: Home, Pipeline, Bookings, Fleet and Assistant. The highlighted tab follows you into detail screens, so a booking keeps **Bookings** lit.
 2. **My listings.** Two `ACTIVE` listings: _CAT 320 excavator with operator option_ (₹12,000.00/day) and _JCB 3CX backhoe loader_ (₹4,500.00/day). Open one: it has two coloured placeholder photos, the model's specifications and its machines.
 3. **Rate card.** On the CAT 320 listing, the rate card shows week ₹72,000, month ₹2,70,000, transport ₹6,000, operator ₹1,500/day and deposit ₹25,000. The JCB 3CX has no rate card.
 4. **Fleet.** One yard, _Gachibowli Yard_, and four machines grouped by listing: `CAT320 #1`, `CAT320 #2`, `JCB3CX #1`, `JCB3CX #2`.
@@ -66,11 +66,11 @@ Sign in as `supplier.charminar@demo.equipmentexchange.local`.
 
 Sign in as `builder.kukatpally@demo.equipmentexchange.local`.
 
-1. **Home.** "Welcome, Kukatpally Infra" with Find equipment, Post a requirement, My requests, My requirements, Bookings, Notifications and Equipment catalogue. The Notifications button shows the unread count.
-2. **Browse the catalogue.** **Find equipment** lists the four demo listings in Hyderabad (plus any others in your database). Filter by category _Excavator_: only the CAT 320 and PC210 remain. **Equipment catalogue** lists equipment models; open _Caterpillar 320_ to see its specifications and its active listings.
-3. **Accept a quote.** **My requests**: the PC210 request (day 20 to day 24) has a `SENT` quote. Open it and press **Accept and book**. The quote becomes `ACCEPTED` and a `CONFIRMED` booking appears under **Bookings**.
+1. **Home.** "Welcome, Kukatpally Infra" with Post a requirement, Notifications, Equipment assistant and Equipment catalogue. The Notifications button shows the unread count. A tab bar floats at the bottom of every builder screen: Home, Find, Requests, Requirements and Bookings.
+2. **Browse the catalogue.** The **Find** tab lists the four demo listings in Hyderabad (plus any others in your database). Filter by category _Excavator_: only the CAT 320 and PC210 remain. **Equipment catalogue** lists equipment models; open _Caterpillar 320_ to see its specifications and its active listings.
+3. **Accept a quote.** **Requests**: the PC210 request (day 20 to day 24) has a `SENT` quote. Open it and press **Accept and book**. The quote becomes `ACCEPTED` and a `CONFIRMED` booking appears under **Bookings**.
 4. **See bookings.** **Bookings** lists JCB 3CX day 5 to day 9 (`CONFIRMED`, or later if you moved it as Deccan), JCB 3CX day 30 to day 33 (`RETURNED`) and the PC210 booking you just made.
-5. **Track a requirement.** **My requirements**: "Excavator for foundation work, Kukatpally" is `OPEN`. Open it: it was sent to the CAT 320 (Deccan) and PC210 (Charminar) listings. Each row shows whether the supplier has viewed it and any quote they sent (for example the one you sent as Deccan in step 2.8).
+5. **Track a requirement.** **Requirements**: "Excavator for foundation work, Kukatpally" is `OPEN`. Open it: it was sent to the CAT 320 (Deccan) and PC210 (Charminar) listings. Each row shows whether the supplier has viewed it and any quote they sent (for example the one you sent as Deccan in step 2.8).
 6. **Create and send a requirement.** **Post a requirement**: title "Telehandler for slab work", category _Telehandler_, city _Hyderabad_, dates a few weeks out. Save it, open its matches, tick the JCB 540-140 listing and send. It now shows as sent, and Charminar sees a new rental request.
 7. **Notifications.** Open **Notifications**: quote received, booking confirmed and similar messages, newest first. Opening one marks it read; **Mark all as read** clears the count.
 

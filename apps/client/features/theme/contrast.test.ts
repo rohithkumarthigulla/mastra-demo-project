@@ -46,3 +46,35 @@ describe.each([
     expect(contrast(tones[tone].text, tones[tone].background)).toBeGreaterThanOrEqual(TEXT);
   });
 });
+
+/** `fg` laid over `bg` at `alpha`, as #rrggbb. */
+function composite(fg: string, bg: string, alpha: number): string {
+  return `#${[1, 3, 5]
+    .map((i) => {
+      const f = parseInt(fg.slice(i, i + 2), 16);
+      const b = parseInt(bg.slice(i, i + 2), 16);
+      return Math.round(f * alpha + b * (1 - alpha))
+        .toString(16)
+        .padStart(2, '0');
+    })
+    .join('')}`;
+}
+
+describe.each([
+  ['light', lightTheme],
+  ['dark', darkTheme],
+] as [string, Theme][])('%s glass navigation bar contrast (WCAG AA)', (_, { glass }) => {
+  // The blur shows whatever scrolls underneath; pure black and white are the worst cases.
+  const glassOver = ['#000000', '#ffffff'].map((under) =>
+    composite(glass.tint, under, glass.tintOpacity),
+  );
+  const bubbleOver = glassOver.map((g) => composite(glass.bubble, g, glass.bubbleOpacity));
+
+  it('inactive labels are readable on the glass over any content', () => {
+    for (const bg of glassOver) expect(contrast(glass.inactive, bg)).toBeGreaterThanOrEqual(TEXT);
+  });
+
+  it('the active label is readable on the bubble over any content', () => {
+    for (const bg of bubbleOver) expect(contrast(glass.active, bg)).toBeGreaterThanOrEqual(TEXT);
+  });
+});

@@ -15,23 +15,12 @@ export default function SupplierHomeScreen() {
       <Stack.Screen options={{ title: 'Supplier' }} />
       <Heading title={`Welcome, ${name}`} subtitle="Manage your fleet and rental pipeline." />
       <View style={{ gap: theme.spacing.sm, maxWidth: theme.size.column }}>
-        <Button title="Pipeline" onPress={() => router.push('/supplier/pipeline/tracker')} />
-        <Button
-          title="Rental requests"
-          variant="secondary"
-          onPress={() => router.push('/supplier/pipeline')}
-        />
+        <Button title="Rental requests" onPress={() => router.push('/supplier/pipeline')} />
         <Button
           title="Quotes"
           variant="secondary"
           onPress={() => router.push('/supplier/quotes')}
         />
-        <Button
-          title="Bookings"
-          variant="secondary"
-          onPress={() => router.push('/supplier/bookings')}
-        />
-        <Button title="Fleet" variant="secondary" onPress={() => router.push('/supplier/fleet')} />
         <Button
           title="Availability"
           variant="secondary"
@@ -41,11 +30,6 @@ export default function SupplierHomeScreen() {
           title="My listings"
           variant="secondary"
           onPress={() => router.push('/supplier/fleet/listings')}
-        />
-        <Button
-          title="Supplier assistant"
-          variant="secondary"
-          onPress={() => router.push('/supplier/agent')}
         />
         <Button
           title="Company profile"

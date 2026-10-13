@@ -17,19 +17,7 @@ export default function BuilderHomeScreen() {
       <Stack.Screen options={{ title: 'Builder' }} />
       <Heading title={`Welcome, ${name}`} subtitle="Find and rent equipment for your projects." />
       <View style={{ gap: theme.spacing.sm, maxWidth: theme.size.column }}>
-        <Button title="Find equipment" onPress={() => router.push('/find')} />
-        <Button
-          title="Post a requirement"
-          variant="secondary"
-          onPress={() => router.push('/requirements/new')}
-        />
-        <Button title="My requests" variant="secondary" onPress={() => router.push('/requests')} />
-        <Button
-          title="My requirements"
-          variant="secondary"
-          onPress={() => router.push('/requirements')}
-        />
-        <Button title="Bookings" variant="secondary" onPress={() => router.push('/bookings')} />
+        <Button title="Post a requirement" onPress={() => router.push('/requirements/new')} />
         <Button
           title={unread > 0 ? `Notifications (${unread})` : 'Notifications'}
           variant="secondary"

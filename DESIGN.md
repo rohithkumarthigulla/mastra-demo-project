@@ -115,7 +115,7 @@ Key characteristics:
 - Light and dark themes follow the OS; every color comes from `useTheme()`.
 - System fonts only (San Francisco / Roboto / platform sans on web).
 - One primary action per screen; everything else is a secondary (outlined) button or a link.
-- Flat surfaces separated by 1px borders, no shadows.
+- Flat surfaces separated by 1px borders, no shadows. The one floating element is the bottom tab bar.
 
 ## Colors
 
@@ -140,6 +140,13 @@ A neutral grey scaffold with one warm accent. Orange is a fill color: it sits be
 - **tones** (`neutral`, `positive`, `warning`) — background/text pairs for status badges. Text is ≥ 4.5:1 on its own background.
 - **brand-blue** `#1f4e79` — splash and app icon only; not used in screens.
 
+### Glass (tab bar only)
+
+- **glass.tint** / **glass.tintOpacity** — the translucent fill laid over the blur.
+- **glass.border** — the pill's outline.
+- **glass.bubble** / **glass.bubbleOpacity** — the droplet behind the active tab.
+- **glass.active** / **glass.inactive** — tab icon and label colors. Inactive is ≥ 4.5:1 on the glass over pure black or white content; active is ≥ 4.5:1 on the bubble.
+
 ### Rules
 
 - **Never hard-code a color in a screen.** Use `theme.colors.*` or `theme.tones.*`. `apps/client/features/theme/contrast.test.ts` enforces AA for every pair above.
@@ -158,13 +165,13 @@ System sans throughout, no custom fonts. Hierarchy comes from size and weight to
 ## Layout
 
 - Spacing scale `xs 4 · sm 8 · md 16 · lg 24 · xl 32`. Screens pad `lg`; stacks inside a section gap `sm`–`md`; sections gap `lg`.
-- `<Screen>` wraps every route: safe-area + scroll + `background`.
-- Narrow content (home menu, sign-in, centered errors) is capped at `size.column` (420).
+- `<Screen>` wraps every route: safe-area + scroll + `background`. Inside the builder and supplier areas it also pads the bottom by the tab bar's height, so nothing scrolls out of reach behind the bar.
+- Narrow content (home shortcuts, sign-in, centered errors) is capped at `size.column` (420).
 - At `WIDE_BREAKPOINT` (768) filters and form fields go side-by-side; card grids wrap with a 220 minimum width.
 
 ## Elevation & Depth
 
-Flat. Depth is expressed with `surface` on `background` plus a 1px `border`. No shadows — they render differently on every platform and add nothing for this audience. The only overlay is the `Select` sheet over a 45% black scrim.
+Flat. Depth is expressed with `surface` on `background` plus a 1px `border`. No shadows — they render differently on every platform and add nothing for this audience. Two exceptions: the `Select` sheet over a 45% black scrim, and the bottom tab bar, which floats over content as a blurred translucent pill (still no shadow).
 
 ## Shapes
 
@@ -188,6 +195,10 @@ Two radii: `radius.sm` (6) for inputs, select options and small controls; `radiu
 
 `<TextField>` / `<Select>` — label above (`label` style), `surface` fill, `borderStrong` outline, `danger` outline + message on error. Select opens a sheet with searchable options. `TextField` takes an optional `accessory` shown to the right of the input — the sign-in Password field uses it for a **Show** / **Hide** text button (`link` colour, 44×44 hit area, dims while pressed, labelled "Show password" / "Hide password").
 
+### Tab bar
+
+`TabBar` (`features/navigation`) — the signed-in builder and supplier areas share one floating pill at the bottom of every screen, five tabs each (icon over a `fontSize.xs` label, outlined icon when inactive, filled when active). The pill is `expo-blur` under a `glass.tint` fill with a `glass.border` outline, capped at 480 wide and centered. A `glass.bubble` droplet sits behind the active tab; on a tab change its leading edge springs ahead and its trailing edge follows, so it stretches toward the new tab and settles with a small overshoot (about 400 ms). With Reduce Motion on, it jumps. The active tab comes from the URL (`activeTabFor`), so detail screens keep their tab lit and unknown routes fall back to Home. Each tab is a 44-high `tab` with `aria-selected` on the active one.
+
 ### Status & progress
 
 `<Badge>` with `tones`; `StageBar` (dots + label for current stage); `Timeline` for history. All pair color with text.
@@ -204,4 +215,5 @@ Every async screen uses the same three primitives: `<LoadingIndicator>` while lo
 - **Do** say the stage or status in words.
 - **Don't** put white text on orange, or `primary` orange as body text — use `onPrimary` and `link`.
 - **Don't** add shadows, gradients, custom fonts or a second accent color.
+- **Don't** use glass or blur outside the tab bar.
 - **Don't** hard-code hex values or pixel sizes in screens.

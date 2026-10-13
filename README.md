@@ -33,7 +33,7 @@ apps/
     app/                expo-router routes (builder, supplier, equipment, listing, sign-in)
     api/                typed api client
     platform/           device and runtime integration
-    features/<name>/    feature code (auth, equipment, rental, quotes, supplier, ...)
+    features/<name>/    feature code (auth, equipment, navigation, rental, quotes, supplier, ...)
 packages/
   contracts/            Zod schemas shared by the api and the client (@ee/contracts)
 docs/                   feature docs, walkthrough, deployment
